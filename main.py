@@ -29,8 +29,6 @@ class Controller:
             ('Ctrl+v', 'Enter visual mode', lambda: self.model.setMode(Mode.VISUAL)),
             ('Ctrl+p', 'Paste text from the clipboard', self.model.paste),
             ('Ctrl+h', 'Toggle help', self.model.toggleHelp),
-            ('BackSpace', 'Delete character before cursor', self.model.backspace),
-            ('Delete', 'Delete character at cursor', self.model.delete),
             ('Escape', 'Exit insert mode', lambda: self.model.setMode(Mode.NORMAL)),
             ('Right', 'Move cursor Right', lambda: self.model.movecursor(1, 0)),
             ('Left', 'Move cursor Left', lambda: self.model.movecursor(-1, 0)),
@@ -75,7 +73,7 @@ class Controller:
         # if len(keychar) == 1 and len(keysym) <= 2 and keychar.islower():
         #     keysym = keysym.lower()
 
-        # self.model.code = [f'{k}: {v}' for k, v in event.__dict__.items()]
+        # self.model.code = [f'{k}: {repr(v)}' for k, v in event.__dict__.items()]
 
         self.action = self.keymaps[self.model.mode].get(keysym, None)
 

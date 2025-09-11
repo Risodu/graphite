@@ -175,17 +175,27 @@ class Model:
         self.code = c.split('\n')
 
     def flatpos(self, x, y):
+        "Given coordinates in structured code, return the corresponding position in flat code"
         c = x
         for i in range(y):
             c += len(self.code[i]) + 1
         return c
+
+    def structpos(self, c):
+        "Given coordinates in flat code, return the corresponding position in structured code"
+        x = c
+        y = 0
+        while x > len(self.code[y]):
+            x -= len(self.code[y]) + 1
+            y += 1
+        return [x, y]
 
     def compile(self):
         "Compile the code, updating attributes `compiled` and `errors`"
         self.lines = len(self.code)
         self.compiled = [None] * self.lines
         self.errors = [None] * self.lines
-        
+
         for i, line in enumerate(self.code):
             if not line.strip(): continue
             try:
@@ -245,47 +255,35 @@ class Model:
         if x: self.xrange.zoom(scale)
         if y: self.yrange.zoom(scale)
 
+    def normalizeString(self, s: str) -> str:
+        "Return normalized version of string to put into the code"
+        s = s.replace('\r', '\n')
+        ns = ''
+        DEL = False
+        for c in s:
+            if DEL:
+                DEL = False
+                continue
+            if c == '\x08':
+                ns = ns[:-1] if ns else ''
+            elif c == '\x7f':
+                DEL = True
+            else:
+                ns += c
+        return ns
+
     @undoable
     def write(self, s: str) -> None:
         "Write the string on the screen at the cursor position"
-        x, y = self.cursor
-        parts = (self.code[y][:x] + s.replace('\r', '\n') + self.code[y][x:]).split('\n')
-        self.code[y] = parts[0]
-        for p in parts[:0:-1]:
-            self.code.insert(y + 1, p)
-        
-        self.cursor[0] += len(s)
-        while self.cursor[0] > len(self.code[self.cursor[1]]):
-            self.cursor[0] -= len(self.code[self.cursor[1]]) + 1
-            self.cursor[1] += 1
+        c = self.flatpos(*self.cursor)
+        lbefore = len(self.flatCode)
+        self.flatCode = self.normalizeString(self.flatCode[:c] + s + self.flatCode[c:])
+        self.cursor = self.structpos(c + len(self.flatCode) - lbefore + s.count('\x7f'))
 
     def movecursor(self, x: int, y: int) -> None:
         "Move the cursor"
         self.cursor[1] = min(len(self.code) - 1, max(self.cursor[1] + y, 0))
         self.cursor[0] = min(len(self.code[self.cursor[1]]), max(self.cursor[0] + x, 0))
-
-    @undoable
-    def backspace(self):
-        "Delete character before the cursor"
-        x, y = self.cursor
-        if x == 0: return
-        self.code[y] = self.code[y][:x - 1] + self.code[y][x:]
-        self.cursor[0] -= 1
-
-    @undoable
-    def delete(self):
-        "Delete character after the cursor"
-        x, y = self.cursor
-        if x == len(self.code[y]): return
-        self.code[y] = self.code[y][:x] + self.code[y][x + 1:]
-
-    def relchar(self, c):
-        x = c
-        y = 0
-        while x > len(self.code[y]):
-            x -= len(self.code[y]) + 1
-            y += 1
-        return [x, y]
 
     def save(self):
         return [self.code.copy(), self.cursor.copy()]
@@ -315,13 +313,14 @@ class Model:
     def paste(self):
         self.write(pyperclip.paste())
 
+    @undoable
     def cut(self):
         start, end = sorted([self.flatpos(*self.visualBegin), self.flatpos(*self.cursor)])
         s = '\n'.join(self.code) + '\n'
         pyperclip.copy(s[start : end + 1])
         s = s[:start] + s[end + 1:]
         self.code = s.split('\n')
-        self.cursor = self.relchar(start)
+        self.cursor = self.structpos(start)
         self.setMode(Mode.NORMAL)
 
 if __name__ == '__main__':
