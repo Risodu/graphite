@@ -12,6 +12,7 @@ class Mode(enum.Enum):
     NORMAL = 'Normal'
     INSERT = 'Insert'
     VISUAL = 'Visual'
+    COMMAND = 'Command'
 
 class Interval:
     "Span determined by its endpoints."
@@ -146,7 +147,7 @@ builtins = Context(constatns, functions) # type: ignore
 def undoable(f):
     def wrapper(self, *args, **kwargs):
         self.undohistory = []
-        self.history.append(self.save())
+        self.history.append(self.saveState())
         f(self, *args, **kwargs)
     return wrapper
 
@@ -164,6 +165,8 @@ class Model:
         self.visualBegin = [0, 0]
         self.mode = Mode.NORMAL
         self.help = False
+        self.cmdIO = ''
+        self.filename = None
         self.compile()
 
     @property
@@ -239,6 +242,8 @@ class Model:
         "Set the `mode` to `m`"
         if m == Mode.VISUAL:
             self.visualBegin = self.cursor.copy()
+        if m == Mode.COMMAND:
+            self.cmdIO = ':'
         self.mode = m
 
     def toggleHelp(self) -> None:
@@ -280,29 +285,35 @@ class Model:
         self.flatCode = self.normalizeString(self.flatCode[:c] + s + self.flatCode[c:])
         self.cursor = self.structpos(c + len(self.flatCode) - lbefore + s.count('\x7f'))
 
+    def cmdwrite(self, s: str) -> None:
+        "Write the string to the command buffer"
+        self.cmdIO = self.normalizeString(self.cmdIO + s)
+        if not self.cmdIO:
+            self.setMode(Mode.NORMAL)
+
     def movecursor(self, x: int, y: int) -> None:
         "Move the cursor"
         self.cursor[1] = min(len(self.code) - 1, max(self.cursor[1] + y, 0))
         self.cursor = self.structpos(min(len(self.flatCode), max(self.flatpos(*self.cursor) + x, 0)))
 
-    def save(self):
+    def saveState(self):
         return [self.code.copy(), self.cursor.copy()]
 
-    def load(self, state):
+    def loadState(self, state):
         self.code = state[0].copy()
         self.cursor = state[1].copy()
 
     def undo(self):
         if not self.history: return
-        self.undohistory.append(self.save())
+        self.undohistory.append(self.saveState())
         s = self.history.pop()
-        self.load(s)
+        self.loadState(s)
 
     def redo(self):
         if not self.undohistory: return
-        self.history.append(self.save())
+        self.history.append(self.saveState())
         s = self.undohistory.pop()
-        self.load(s)
+        self.loadState(s)
 
     def yank(self):
         start, end = sorted([self.flatpos(*self.visualBegin), self.flatpos(*self.cursor)])
@@ -322,6 +333,31 @@ class Model:
         self.code = s.split('\n')
         self.cursor = self.structpos(start)
         self.setMode(Mode.NORMAL)
+
+    def saveFile(self, filename: str | None):
+        if filename is not None:
+            self.filename = filename
+        if self.filename is None:
+            return "No file specified"
+        try:
+            with open(self.filename, 'w') as fh:
+                fh.write(self.flatCode)
+                return f'Saved to file `{filename}`'
+        except Exception as err:
+            return str(err)
+
+    def loadFile(self, filename: str | None):
+        if filename is not None:
+            self.filename = filename
+        if self.filename is None:
+            return "No file specified"
+        try:
+            with open(self.filename, 'r') as fh:
+                self.flatCode = fh.read()
+                self.compile()
+                return f'Loaded file `{filename}`'
+        except Exception as err:
+            return str(err)
 
 if __name__ == '__main__':
     for k, v in builtins.functions.items():

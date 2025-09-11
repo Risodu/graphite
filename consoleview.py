@@ -15,6 +15,7 @@ class StyleEnum(enum.IntEnum):
     KEYWORD = 7
     IDENTIFIER = 8
     CONSTANT = 9
+    COMMAND = 10
 
 class ConsoleView:
     "Class that manages the view of the console window"
@@ -33,6 +34,7 @@ class ConsoleView:
         curses.init_pair(StyleEnum.KEYWORD, curses.COLOR_BLUE, curses.COLOR_BLACK)
         curses.init_pair(StyleEnum.IDENTIFIER, curses.COLOR_GREEN, curses.COLOR_BLACK)
         curses.init_pair(StyleEnum.CONSTANT, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+        curses.init_pair(StyleEnum.COMMAND, curses.COLOR_CYAN, curses.COLOR_BLACK)
         curses.curs_set(0)
         self.draw()
 
@@ -48,6 +50,7 @@ class ConsoleView:
             self.drawCode()
 
         self.scr.addstr(self.maxy - 1, 0, str(self.model.mode), curses.color_pair(StyleEnum.MODE))
+        self.scr.addstr(self.maxy - 1, 20, self.model.cmdIO, curses.color_pair(StyleEnum.COMMAND))
         self.scr.refresh()
 
     def drawCode(self):

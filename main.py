@@ -2,11 +2,15 @@ from plotview import PlotView
 from model import Model, Mode
 from consoleview import ConsoleView, run
 import time
+import sys
 
 class Controller:
     "The main control of the application"
     def __init__(self, stdscr):
         self.model = Model()
+        if len(sys.argv) > 1:
+            self.model.loadFile(sys.argv[1])
+
         self.plotView = PlotView(self.model)
         self.consoleView = ConsoleView(stdscr, self.model, self)
 
@@ -19,7 +23,7 @@ class Controller:
             ('Down', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
             ('i', 'Enter insert mode', lambda: self.model.setMode(Mode.INSERT)),
             ('v', 'Enter visual mode', lambda: self.model.setMode(Mode.VISUAL)),
-            ('q', 'Quit the application', lambda: self.plotView.root.quit()),
+            (':', 'Enter command mode', lambda: self.model.setMode(Mode.COMMAND)),
             ('u', 'Undo last change', lambda: self.model.undo),
             ('r', 'Redo last change', self.model.undo),
             ('h', 'Toggle help', self.model.toggleHelp),
@@ -43,7 +47,17 @@ class Controller:
             ('y', 'Yank the selection', self.model.yank),
             ('d', 'Delete (cut) the selection', self.model.cut),
             ('h', 'Toggle help', self.model.toggleHelp),
+        ], Mode.COMMAND: [
+            ('Escape', 'Exit command mode (abort)', lambda: self.model.setMode(Mode.NORMAL)),
+            ('Ctrl+h', 'Toggle help', self.model.toggleHelp),
+            ('Return', 'Execute the command', lambda: self.runCommand(self.model.cmdIO)),
         ]}
+
+        self.commands = [
+            (':q', 'Quit the application', lambda: self.plotView.root.quit()),
+            (':w', 'Write the code to the file', lambda name = None: self.model.saveFile(name)),
+            (':wq', 'Write the code to the file and quit the application', lambda name = None: (self.model.saveFile(name), self.plotView.root.quit())),
+        ]
 
         self.keymaps = {}
         for mode, defs in self.keybinds.items():
@@ -51,6 +65,10 @@ class Controller:
             for key, desc, act in defs:
                 d[key] = act
             self.keymaps[mode] = d
+
+        self.cmds = {}
+        for key, desc, act in self.commands:
+            self.cmds[key] = act
 
         self.plotView.root.bind("<Key>", self.handleInput)
         self.plotView.root.mainloop()
@@ -75,6 +93,9 @@ class Controller:
 
         # self.model.code = [f'{k}: {repr(v)}' for k, v in event.__dict__.items()]
 
+        if self.model.mode != Mode.COMMAND:
+            self.model.cmdIO = ''
+
         self.action = self.keymaps[self.model.mode].get(keysym, None)
 
         if self.action is None:
@@ -83,26 +104,37 @@ class Controller:
         if self.action is not None:
             self.action()
 
-        if self.model.mode == Mode.INSERT and self.action is None and keychar:
-            self.model.write(keychar)
+        if self.action is None and keychar:
+            if self.model.mode == Mode.INSERT:
+                self.model.write(keychar)
+
+            if self.model.mode == Mode.COMMAND:
+                self.model.cmdwrite(keychar)
 
         self.refresh()
+
+    def runCommand(self, cmd: str):
+        cmd, *args = cmd.split()
+        if cmd not in self.cmds:
+            m = f'Unknown command: "{cmd}"'
+        else:
+            m = self.cmds[cmd](*args) or ''
+        self.model.cmdIO = m
+        self.model.setMode(Mode.NORMAL)
 
     def refresh(self):
         modelTime.append(timed(self.model.compile))
         plotTime.append(timed(self.plotView.draw))
         consoleTime.append(timed(self.consoleView.draw))
 
-from time import time
-
 modelTime = []
 plotTime = []
 consoleTime = []
 
 def timed(f):
-    t = time()
+    t = time.time()
     f()
-    return time() - t
+    return time.time() - t
 
 def mainloop(stdscr) -> None:
     try:
