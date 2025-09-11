@@ -112,8 +112,8 @@ def mainloop(stdscr) -> None:
 
 if __name__ == '__main__':
     run(mainloop)
-    l = len(modelTime)
-    print(l)
-    print(sum(modelTime) / l)
-    print(sum(plotTime) / l)
-    print(sum(consoleTime) / l)
+    # l = len(modelTime)
+    # print(l)
+    # print(sum(modelTime) / l)
+    # print(sum(plotTime) / l)
+    # print(sum(consoleTime) / l)

@@ -283,7 +283,7 @@ class Model:
     def movecursor(self, x: int, y: int) -> None:
         "Move the cursor"
         self.cursor[1] = min(len(self.code) - 1, max(self.cursor[1] + y, 0))
-        self.cursor[0] = min(len(self.code[self.cursor[1]]), max(self.cursor[0] + x, 0))
+        self.cursor = self.structpos(min(len(self.flatCode), max(self.flatpos(*self.cursor) + x, 0)))
 
     def save(self):
         return [self.code.copy(), self.cursor.copy()]
