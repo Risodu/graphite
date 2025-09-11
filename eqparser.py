@@ -17,6 +17,7 @@ identifier = Word(alphas + '_', alphanums + '_')
 variable = identifier.copy().setParseAction(lambda toks: Variable(toks[0]))
 integer = Word(nums)
 number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(lambda toks: Constant(float(toks[0])))
+comment = Suppress(Literal('#') + restOfLine)
 
 expression = Forward()
 
@@ -32,8 +33,9 @@ expression <<= infixNotation(atom,
         (oneOf('+ -'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
     ])            
 
-fundef = Optional(identifier + Optional(Group(Suppress('(') + Optional(arglist) + Suppress(')'))) + Suppress('=')) + expression
-paramplot = Suppress('(') + Group(arglist) + Suppress(')') + Optional(Suppress('[') + Group(arglist) + Suppress(']'))
+fundef = Optional(identifier + Optional(Group(Suppress('(') + Optional(arglist) + Suppress(')'))) + Suppress('=')) + expression + Optional(comment)
+paramplot = Suppress('(') + Group(arglist) + Suppress(')') + Optional(Suppress('[') + Group(arglist) + Suppress(']')) + Optional(comment)
+null = Optional(comment)
 
 def parseFundef(s: str) -> tuple[str, list[Expression], Expression]:
     "Parse the string into function definition, raise `SyntaxError` on error"
@@ -49,7 +51,13 @@ def parseParamPlot(s: str) -> list[list[Expression]]:
     except ParseException:
         raise FatalSyntaxError('Invalid syntax')
 
+def parseNull(s: str) -> None:
+    "Parse the string into nothing, raise `SyntaxError` on error"
+    try:
+        return null.parseString(s, parseAll=True) # type: ignore
+    except ParseException:
+        raise FatalSyntaxError('Invalid syntax')
 
 if __name__ == '__main__':
-    test_string = "-sin(x)+3.14*y-2/z"
+    test_string = "-sin(x)+3.14*y-2/z # comment"
     print(fundef.parseString(test_string))

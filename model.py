@@ -4,7 +4,7 @@ import re
 import enum
 import pyperclip
 
-from eqparser import parseFundef, parseParamPlot, FatalSyntaxError
+from eqparser import parseFundef, parseParamPlot, parseNull, FatalSyntaxError
 from xmath import Context, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional
 
 class Mode(enum.Enum):
@@ -90,16 +90,18 @@ def compileParamPlot(line: str):
 
     return ParamPlot(exprs[0], exprs[1], params[0].id, params[1].value, params[2].value)
 
-def compileLine(line: str):
-    try:
-        return compileFunction(line)
-    except FatalSyntaxError as err:
-        pass
+def compileNull(line: str):
+    parseNull(line)
 
-    try:
-        return compileParamPlot(line)
-    except FatalSyntaxError as err:
-        raise err
+def compileLine(line: str):
+    err = None
+    for f in [compileFunction, compileParamPlot, compileNull]:
+        try:
+            return f(line)
+        except FatalSyntaxError as e:
+            err = e
+
+    raise err # type: ignore
 
 simpleFuns = [
     'abs', 'sign', 'copysign',
@@ -158,7 +160,7 @@ class Model:
         self.yrange = Interval()
         self.compiled: list[tuple[str, UserFunction] | None | ParamPlot] = []
         self.errors: list[str | None] = []
-        self.code = ['sin(x)']
+        self.code = ['']
         self.history = []
         self.undohistory = []
         self.cursor = [0, 0]

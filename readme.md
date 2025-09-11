@@ -13,11 +13,12 @@ pip install pyperclip
 Clone the repository:
 ```sh
 git clone https://github.com/Risodu/graphite
+cd graphite
 ```
 
 Run the application:
 ```sh
-python3 graphite/main.py
+python3 main.py example.plot
 ```
 
 Optional: Add an alias for quicker access:
