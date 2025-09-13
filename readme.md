@@ -5,10 +5,15 @@
 
 Ensure all dependencies are installed:
 ```sh
-pip install tk
 pip install matplotlib
 pip install pyperclip
 ```
+
+Install Tkinter if you haven't already:
+- Ubuntu: `sudo apt-get install python3-tk`
+- Fedora: `sudo dnf install python3-tkinter`
+- MacOS: `brew install python-tk`
+
 
 Clone the repository:
 ```sh

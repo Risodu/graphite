@@ -1,4 +1,4 @@
-# Classic funciton plotting
+# Classic function plotting
 sin(x)
 x ** 2 + x - 1
 

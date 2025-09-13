@@ -21,6 +21,10 @@ class Controller:
             ('Left', 'Shift plot Left', lambda: self.model.xrange.relshift(-0.2)),
             ('Up', 'Shift plot Up', lambda: self.model.yrange.relshift(0.2)),
             ('Down', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
+            ('Ctrl+l', 'Shift plot Right', lambda: self.model.xrange.relshift(0.2)),
+            ('Ctrl+h', 'Shift plot Left', lambda: self.model.xrange.relshift(-0.2)),
+            ('Ctrl+k', 'Shift plot Up', lambda: self.model.yrange.relshift(0.2)),
+            ('Ctrl+j', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
             ('i', 'Enter insert mode', lambda: self.model.setMode(Mode.INSERT)),
             ('v', 'Enter visual mode', lambda: self.model.setMode(Mode.VISUAL)),
             (':', 'Enter command mode', lambda: self.model.setMode(Mode.COMMAND)),
@@ -42,6 +46,7 @@ class Controller:
             ('Ctrl+h', 'Move cursor Left', lambda: self.model.movecursor(-1, 0)),
             ('Ctrl+k', 'Move cursor Up', lambda: self.model.movecursor(0, -1)),
             ('Ctrl+j', 'Move cursor Down', lambda: self.model.movecursor(0, 1)),
+            ('Ctrl+;', 'Comment/uncomment line', lambda: self.model.toggleCommentLine())
         ], Mode.VISUAL: [
             ('Escape', 'Exit visual mode', lambda: self.model.setMode(Mode.NORMAL)),
             ('Right', 'Move cursor Right', lambda: self.model.movecursor(1, 0)),
@@ -55,6 +60,7 @@ class Controller:
             ('y', 'Yank the selection', self.model.yank),
             ('d', 'Delete (cut) the selection', self.model.cut),
             ('h', 'Toggle help', self.model.toggleHelp),
+            (';', 'Comment/uncomment selected block', lambda: self.model.toggleCommentBlock())
         ], Mode.COMMAND: [
             ('Escape', 'Exit command mode (abort)', lambda: self.model.setMode(Mode.NORMAL)),
             ('Ctrl+h', 'Toggle help', self.model.toggleHelp),

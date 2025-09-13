@@ -84,9 +84,9 @@ def compileParamPlot(line: str):
     if not isinstance(params[0], Variable):
         raise SyntaxError(f'First parameter of parametric plot must be variable name')
     if not isinstance(params[1], Constant):
-        raise SyntaxError(f'Second parameter of parametric plot must be constant name')
+        raise SyntaxError(f'Second parameter of parametric plot must be constant')
     if not isinstance(params[2], Constant):
-        raise SyntaxError(f'Third parameter of parametric plot must be constant name')
+        raise SyntaxError(f'Third parameter of parametric plot must be constant')
 
     return ParamPlot(exprs[0], exprs[1], params[0].id, params[1].value, params[2].value)
 
@@ -361,6 +361,25 @@ class Model:
                 return f'Loaded file `{filename}`'
         except Exception as err:
             return str(err)
+
+    def toggleCommentLine(self):
+        l = self.code[self.cursor[1]]
+        if l.startswith('#'):
+            l = l.lstrip('# ')
+        else:
+            l = '# ' + l
+        self.code[self.cursor[1]] = l
+
+    def toggleCommentBlock(self):
+        s, e = sorted((self.cursor[1], self.visualBegin[1]))
+        e += 1
+
+        if any(self.code[i].startswith('#') for i in range(s, e)):
+            for i in range(s, e):
+                self.code[i] = self.code[i].lstrip('# ')
+        else:
+            for i in range(s, e):
+                self.code[i] = '# ' + self.code[i]
 
 if __name__ == '__main__':
     for k, v in builtins.functions.items():
