@@ -17,6 +17,7 @@ class StyleEnum(enum.IntEnum):
     CONSTANT = 9
     COMMENT = 10
     COMMAND = 11
+    PREPROCESS = 12
 
 class ConsoleView:
     "Class that manages the view of the console window"
@@ -37,6 +38,7 @@ class ConsoleView:
         curses.init_pair(StyleEnum.CONSTANT, curses.COLOR_YELLOW, curses.COLOR_BLACK)
         curses.init_pair(StyleEnum.COMMENT, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
         curses.init_pair(StyleEnum.COMMAND, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(StyleEnum.PREPROCESS, curses.COLOR_RED, curses.COLOR_BLACK)
         curses.curs_set(0)
         self.draw()
 
@@ -74,6 +76,8 @@ class ConsoleView:
                     color = StyleEnum.KEYWORD if text in keywords else StyleEnum.IDENTIFIER
                 elif kind == 'comment':
                     color = StyleEnum.COMMENT
+                elif kind == 'preprocess':
+                    color = StyleEnum.PREPROCESS
                 else:
                     color = StyleEnum.NORMAL
                 self.scr.addstr(lineno, codeStart + start, text, curses.color_pair(color))

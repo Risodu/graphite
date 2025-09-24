@@ -57,7 +57,7 @@ class Interval:
         yield self.e
 
 def compileFunction(line: str):
-    toks = parseFundef(line)
+    toks, kws = parseFundef(line)
     definition = toks[-1]
     name = '' if len(toks) == 1 else toks[0]
     
@@ -69,10 +69,10 @@ def compileFunction(line: str):
             raise SyntaxError('Function definition parameters must be variable names')
         params = [v.id for v in toks[1]] # type: ignore
 
-    return name, UserFunction(params, definition)
+    return (name, UserFunction(params, definition)), kws
 
 def compileParamPlot(line: str):
-    toks = parseParamPlot(line)
+    toks, kws = parseParamPlot(line)
     if len(toks) != 2:
         raise SyntaxError('Parametric plot require parameter definition (such as "(cos(t),sin(t))[t,0,1]")')
     exprs, params = toks
@@ -84,7 +84,7 @@ def compileParamPlot(line: str):
     if not isinstance(params[0], Variable):
         raise SyntaxError(f'First parameter of parametric plot must be variable name')
 
-    return ParamPlot(exprs[0], exprs[1], params[0].id, params[1], params[2])
+    return ParamPlot(exprs[0], exprs[1], params[0].id, params[1], params[2]), kws
 
 def compileNull(line: str):
     parseNull(line)
@@ -154,7 +154,7 @@ class Model:
     def __init__(self) -> None:
         self.xrange = Interval()
         self.yrange = Interval()
-        self.compiled: list[tuple[str, UserFunction] | None | ParamPlot] = []
+        self.compiled: list[tuple[tuple[str, UserFunction] | ParamPlot, list[str]] | None] = []
         self.errors: list[str | None] = []
         self.code = ['']
         self.history = []
@@ -212,6 +212,7 @@ class Model:
 
         for i, line in enumerate(self.compiled):
             if line is None: continue
+            line, kws = line
 
             if isinstance(line, ParamPlot):
                 try:
@@ -230,7 +231,8 @@ class Model:
                     c.variables['x'] = x
                     res = func.evaluate(c, [Variable('x')])
                     context.variables[name] = res
-                    results.append([x, res])
+                    if 'hide' not in kws:
+                        results.append([x, res])
                 except (TypeError, NameError) as err:
                     self.errors[i] = str(err)
 

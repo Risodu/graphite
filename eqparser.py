@@ -1,4 +1,5 @@
 from pyparsing import *
+import re
 
 from xmath import Expression, Constant, Variable, FunCall
 
@@ -17,7 +18,7 @@ identifier = Word(alphas + '_', alphanums + '_')
 variable = identifier.copy().setParseAction(lambda toks: Variable(toks[0]))
 integer = Word(nums)
 number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(lambda toks: Constant(float(toks[0])))
-comment = Suppress(Literal('#') + restOfLine)
+comment = Suppress(Literal('//') + restOfLine)
 
 expression = Forward()
 
@@ -36,18 +37,29 @@ expression <<= infixNotation(atom,
 fundef = Optional(identifier + Optional(Group(Suppress('(') + Optional(arglist) + Suppress(')'))) + Suppress('=')) + expression + Optional(comment)
 paramplot = Suppress('(') + Group(arglist) + Suppress(')') + Optional(Suppress('[') + Group(arglist) + Suppress(']')) + Optional(comment)
 null = Optional(comment)
+preprocessKeyword = re.compile(r'#\w+')
 
-def parseFundef(s: str) -> tuple[str, list[Expression], Expression]:
+def preprocess(s: str) -> tuple[str, list[str]]:
+    "Preprocess the string, filtering out the preprocess keywords"
+    kws = []
+    def repl(m: re.Match):
+        kws.append(m[0][1:])
+        return ''
+    return preprocessKeyword.sub(repl, s), kws
+
+def parseFundef(s: str) -> tuple[tuple[str, list[Expression], Expression], list[str]]:
     "Parse the string into function definition, raise `SyntaxError` on error"
+    s, kws = preprocess(s)
     try:
-        return fundef.parseString(s, parseAll=True)
+        return fundef.parseString(s, parseAll=True), kws
     except ParseException:
         raise FatalSyntaxError('Invalid syntax')
 
-def parseParamPlot(s: str) -> list[list[Expression]]:
+def parseParamPlot(s: str) -> tuple[list[list[Expression]], list[str]]:
     "Parse the string into parametric plot definition, raise `SyntaxError` on error"
+    s, kws = preprocess(s)
     try:
-        return paramplot.parseString(s, parseAll=True) # type: ignore
+        return paramplot.parseString(s, parseAll=True), kws  # type: ignore
     except ParseException:
         raise FatalSyntaxError('Invalid syntax')
 
@@ -59,5 +71,5 @@ def parseNull(s: str) -> None:
         raise FatalSyntaxError('Invalid syntax')
 
 if __name__ == '__main__':
-    test_string = "-sin(x)+3.14*y-2/z # comment"
-    print(fundef.parseString(test_string))
+    test_string = "#red #dashed -sin(x)+3.14*y-2/z // comment"
+    print(parseFundef(test_string))
