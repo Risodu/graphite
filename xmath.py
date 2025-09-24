@@ -205,6 +205,9 @@ class SumFunctional(Function):
     def getDescription(self) -> str:
         return 'Computes derivative of given function against given variable. Example: diff(sin(t),t) = cos(t)'
 
+def extract(arr: np.ndarray):
+    while arr.shape: arr = arr[0]
+    return arr
 
 class ParamPlot:
     """The compiled definition of parametric plot
@@ -213,10 +216,10 @@ class ParamPlot:
         xexpr (list[Expression]): Expression that defines x-coordinate
         yexpr (list[Expression]): Expression that defines y-coordinate
         var (str): Name of the parameter
-        start (float): Initial value of the parameter
-        end (float): Final value of the parameter
+        start (Expression): Initial value of the parameter
+        end (Expression): Final value of the parameter
     """
-    def __init__(self, xexpr: Expression, yexpr: Expression, var: str, start: float, end: float) -> None:
+    def __init__(self, xexpr: Expression, yexpr: Expression, var: str, start: Expression, end: Expression) -> None:
         self.xexpr = xexpr
         self.yexpr = yexpr
         self.var = var
@@ -227,7 +230,7 @@ class ParamPlot:
         "Evaluate the parametric plot"
 
         context = context.copy()
-        t = np.linspace(self.start, self.end, 1000)
+        t = np.linspace(extract(self.start.evaluate(context)), extract(self.end.evaluate(context)), 1000)
         z = np.zeros_like(t)
         context.variables[self.var] = t
 

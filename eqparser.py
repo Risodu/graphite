@@ -28,7 +28,7 @@ atom = functionCall | number | variable
 expression <<= infixNotation(atom,
     [
         (oneOf('** ^'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
-        ('-', 1, opAssoc.RIGHT, lambda toks: FunCall('--', toks[0][1])), # type: ignore
+        ('-', 1, opAssoc.RIGHT, lambda toks: FunCall('--', [toks[0][1]])), # type: ignore
         (oneOf('* /'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
         (oneOf('+ -'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
     ])            

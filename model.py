@@ -83,12 +83,8 @@ def compileParamPlot(line: str):
 
     if not isinstance(params[0], Variable):
         raise SyntaxError(f'First parameter of parametric plot must be variable name')
-    if not isinstance(params[1], Constant):
-        raise SyntaxError(f'Second parameter of parametric plot must be constant')
-    if not isinstance(params[2], Constant):
-        raise SyntaxError(f'Third parameter of parametric plot must be constant')
 
-    return ParamPlot(exprs[0], exprs[1], params[0].id, params[1].value, params[2].value)
+    return ParamPlot(exprs[0], exprs[1], params[0].id, params[1], params[2])
 
 def compileNull(line: str):
     parseNull(line)
