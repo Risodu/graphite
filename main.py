@@ -71,6 +71,7 @@ class Controller:
             (':q', 'Quit the application', lambda: self.plotView.root.quit()),
             (':w', 'Write the code to the file', lambda name = None: self.model.saveFile(name)),
             (':wq', 'Write the code to the file and quit the application', lambda name = None: (self.model.saveFile(name), self.plotView.root.quit())),
+            (':e', 'Export the plot', lambda name = None: self.plotView.export(name))
         ]
 
         self.keymaps = {}

@@ -93,3 +93,13 @@ class PlotView:
         self.ax.set_visible(True)
         self.canvas.draw()
 
+    def export(self, filename: str | None):
+        "Exports the plot"
+        if filename is None:
+            return "No file specified"
+        try:
+            plt.savefig(filename, format=filename.split('.')[-1])
+            return f'Saved to file `{filename}`'
+        except Exception as err:
+            return str(err)
+
