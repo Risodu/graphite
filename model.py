@@ -205,7 +205,7 @@ class Model:
             except (NameError, SyntaxError) as err:
                 self.errors[i] = str(err)
 
-    def execute(self, x: np.ndarray) -> list[np.ndarray]:
+    def execute(self, x: np.ndarray) -> list[tuple[np.ndarray, list[str]]]:
         "Execute the compiled code and return list of results"
         context = builtins.copy()
         results = []
@@ -216,7 +216,7 @@ class Model:
 
             if isinstance(line, ParamPlot):
                 try:
-                    results.append(line.evaluate(context))
+                    results.append((line.evaluate(context), kws))
                 except (TypeError, NameError) as err:
                     self.errors[i] = str(err)
 
@@ -225,14 +225,14 @@ class Model:
                 context.functions[name] = func
                 if len(func.args) != 1:
                     continue
-                
+
                 try:
                     c = context.copy()
                     c.variables['x'] = x
                     res = func.evaluate(c, [Variable('x')])
                     context.variables[name] = res
                     if 'hide' not in kws:
-                        results.append([x, res])
+                        results.append(([x, res], kws))
                 except (TypeError, NameError) as err:
                     self.errors[i] = str(err)
 

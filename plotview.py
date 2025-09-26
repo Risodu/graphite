@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.colors as clrs
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.ticker import MultipleLocator
 import tkinter as tk
@@ -84,9 +85,15 @@ class PlotView:
             l = self.lines.pop()
             l.remove()
 
-        for i, line, points in zip(range(len(data)), self.lines, data):
+        for i, line, info in zip(range(len(data)), self.lines, data):
+            points, kws = info
             line.set_data(*points)
             line.set_color(colors[i])
+            for kw in kws:
+                if clrs.is_color_like(kw):
+                    line.set_color(kw)
+                if clrs.is_color_like('#' + kw):
+                    line.set_color('#' + kw)
 
         self.ax.set_xlim(*self.model.xrange)
         self.ax.set_ylim(*self.model.yrange)
