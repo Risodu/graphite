@@ -142,30 +142,6 @@ class Model:
         self.code = ['']
         self.compile()
 
-    @property
-    def flatCode(self) -> str:
-        return '\n'.join(self.code)
-
-    @flatCode.setter
-    def flatCode(self, c: str):
-        self.code = c.split('\n')
-
-    def flatpos(self, x, y):
-        "Given coordinates in structured code, return the corresponding position in flat code"
-        c = x
-        for i in range(y):
-            c += len(self.code[i]) + 1
-        return c
-
-    def structpos(self, c):
-        "Given coordinates in flat code, return the corresponding position in structured code"
-        x = c
-        y = 0
-        while x > len(self.code[y]):
-            x -= len(self.code[y]) + 1
-            y += 1
-        return [x, y]
-
     def compile(self):
         "Compile the code, updating attributes `compiled` and `errors`"
         self.lines = len(self.code)
@@ -223,23 +199,6 @@ class Model:
         """
         if x: self.xrange.zoom(scale)
         if y: self.yrange.zoom(scale)
-
-    def normalizeString(self, s: str) -> str:
-        "Return normalized version of string to put into the code"
-        s = s.replace('\r', '\n')
-        ns = ''
-        DEL = False
-        for c in s:
-            if DEL:
-                DEL = False
-                continue
-            if c == '\x08':
-                ns = ns[:-1] if ns else ''
-            elif c == '\x7f':
-                DEL = True
-            else:
-                ns += c
-        return ns
 
 if __name__ == '__main__':
     for k, v in builtins.functions.items():

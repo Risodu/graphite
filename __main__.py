@@ -75,9 +75,6 @@ class Controller:
         if self.action is not None:
             self.action()
 
-        if self.action is None and keychar:
-            pass
-
         self.refresh()
 
     def read_stdin(self):
