@@ -26,13 +26,12 @@ arglist = delimitedList(expression)
 functionCall = (identifier + Suppress('(') + arglist + Suppress(')')).setParseAction(lambda toks: FunCall(toks[0], toks[1:])) # type: ignore
 
 atom = functionCall | number | variable
-expression <<= infixNotation(atom,
-    [
-        (oneOf('** ^'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
-        ('-', 1, opAssoc.RIGHT, lambda toks: FunCall('--', [toks[0][1]])), # type: ignore
-        (oneOf('* /'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
-        (oneOf('+ -'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
-    ])            
+expression <<= infixNotation(atom, [
+    (oneOf('** ^'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
+    ('-', 1, opAssoc.RIGHT, lambda toks: FunCall('--', [toks[0][1]])), # type: ignore
+    (oneOf('* /'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
+    (oneOf('+ -'), 2, opAssoc.LEFT, parseLeftAssocBinaryOp), # type: ignore
+])
 
 fundef = Optional(identifier + Optional(Group(Suppress('(') + Optional(arglist) + Suppress(')'))) + Suppress('=')) + expression + Optional(comment)
 paramplot = Suppress('(') + Group(arglist) + Suppress(')') + Optional(Suppress('[') + Group(arglist) + Suppress(']')) + Optional(comment)
