@@ -1,8 +1,8 @@
 import curses
 import enum
 
-from model import Model, Mode, keywords
-from tokenizer import tokenize
+from graphite.model import Model, Mode, keywords
+from graphite.tokenizer import tokenize
 
 class StyleEnum(enum.IntEnum):
     "Styles of the text"

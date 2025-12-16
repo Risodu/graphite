@@ -1,7 +1,7 @@
 from pyparsing import *
 import re
 
-from xmath import Expression, Constant, Variable, FunCall
+from graphite.xmath import Expression, Constant, Variable, FunCall
 
 class FatalSyntaxError(SyntaxError): pass
 

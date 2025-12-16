@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.style as mplstyle
 mplstyle.use('fast')
 
-from model import Model, Interval
+from graphite.model import Model, Interval
 
 def multabs(x):
     if x >= 1: return x

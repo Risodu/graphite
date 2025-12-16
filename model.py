@@ -4,8 +4,8 @@ import re
 import enum
 import pyperclip
 
-from eqparser import parseFundef, parseParamPlot, parseNull, FatalSyntaxError
-from xmath import Context, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional
+from graphite.eqparser import parseFundef, parseParamPlot, parseNull, FatalSyntaxError
+from graphite.xmath import Context, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional
 
 class Mode(enum.Enum):
     "Current mode of the application"
@@ -34,7 +34,7 @@ class Interval:
         mid = self.mid()
         self.s = mid - delta
         self.e = mid + delta
-    
+
     def copyzoom(self, scale: float) -> "Interval":
         "Return interval with `scale` times longer and the same midpoint"
         delta = self.len() * 0.5 * scale
@@ -60,7 +60,7 @@ def compileFunction(line: str):
     toks, kws = parseFundef(line)
     definition = toks[-1]
     name = '' if len(toks) == 1 else toks[0]
-    
+
     if len(toks) <= 2:
         params = ['x']
 

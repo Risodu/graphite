@@ -1,19 +1,20 @@
+#!/usr/bin/python3
+import threading
 import time
 import sys
+from queue import Queue
 
 from graphite.plotview import PlotView
 from graphite.model import Model, Mode
-from graphite.consoleview import ConsoleView, run
 
 class Controller:
     "The main control of the application"
-    def __init__(self, stdscr):
+    def __init__(self):
         self.model = Model()
         if len(sys.argv) > 1:
             self.model.loadFile(sys.argv[1])
 
         self.plotView = PlotView(self.model)
-        self.consoleView = ConsoleView(stdscr, self.model, self)
 
         self.keybinds = {Mode.NORMAL: [
             ('+', 'Zoom plot in', lambda: self.model.zoom(0.8)),
@@ -26,46 +27,6 @@ class Controller:
             ('Ctrl+h', 'Shift plot Left', lambda: self.model.xrange.relshift(-0.2)),
             ('Ctrl+k', 'Shift plot Up', lambda: self.model.yrange.relshift(0.2)),
             ('Ctrl+j', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
-            ('i', 'Enter insert mode', lambda: self.model.setMode(Mode.INSERT)),
-            ('v', 'Enter visual mode', lambda: self.model.setMode(Mode.VISUAL)),
-            (':', 'Enter command mode', lambda: self.model.setMode(Mode.COMMAND)),
-            ('u', 'Undo last change', lambda: self.model.undo),
-            ('r', 'Redo last change', self.model.undo),
-            ('h', 'Toggle help', self.model.toggleHelp),
-        ], Mode.INSERT: [
-            ('Ctrl+u', 'Undo last change', self.model.undo),
-            ('Ctrl+r', 'Redo last change', self.model.redo),
-            ('Ctrl+v', 'Enter visual mode', lambda: self.model.setMode(Mode.VISUAL)),
-            ('Ctrl+p', 'Paste text from the clipboard', self.model.paste),
-            ('Ctrl+h', 'Toggle help', self.model.toggleHelp),
-            ('Escape', 'Exit insert mode', lambda: self.model.setMode(Mode.NORMAL)),
-            ('Right', 'Move cursor Right', lambda: self.model.movecursor(1, 0)),
-            ('Left', 'Move cursor Left', lambda: self.model.movecursor(-1, 0)),
-            ('Up', 'Move cursor Up', lambda: self.model.movecursor(0, -1)),
-            ('Down', 'Move cursor Down', lambda: self.model.movecursor(0, 1)),
-            ('Ctrl+l', 'Move cursor Right', lambda: self.model.movecursor(1, 0)),
-            ('Ctrl+h', 'Move cursor Left', lambda: self.model.movecursor(-1, 0)),
-            ('Ctrl+k', 'Move cursor Up', lambda: self.model.movecursor(0, -1)),
-            ('Ctrl+j', 'Move cursor Down', lambda: self.model.movecursor(0, 1)),
-            ('Ctrl+;', 'Comment/uncomment line', lambda: self.model.toggleCommentLine())
-        ], Mode.VISUAL: [
-            ('Escape', 'Exit visual mode', lambda: self.model.setMode(Mode.NORMAL)),
-            ('Right', 'Move cursor Right', lambda: self.model.movecursor(1, 0)),
-            ('Left', 'Move cursor Left', lambda: self.model.movecursor(-1, 0)),
-            ('Up', 'Move cursor Up', lambda: self.model.movecursor(0, -1)),
-            ('Down', 'Move cursor Down', lambda: self.model.movecursor(0, 1)),
-            ('l', 'Move cursor Right', lambda: self.model.movecursor(1, 0)),
-            ('h', 'Move cursor Left', lambda: self.model.movecursor(-1, 0)),
-            ('k', 'Move cursor Up', lambda: self.model.movecursor(0, -1)),
-            ('j', 'Move cursor Down', lambda: self.model.movecursor(0, 1)),
-            ('y', 'Yank the selection', self.model.yank),
-            ('d', 'Delete (cut) the selection', self.model.cut),
-            ('h', 'Toggle help', self.model.toggleHelp),
-            (';', 'Comment/uncomment selected block', lambda: self.model.toggleCommentBlock())
-        ], Mode.COMMAND: [
-            ('Escape', 'Exit command mode (abort)', lambda: self.model.setMode(Mode.NORMAL)),
-            ('Ctrl+h', 'Toggle help', self.model.toggleHelp),
-            ('Return', 'Execute the command', lambda: self.runCommand(self.model.cmdIO)),
         ]}
 
         self.commands = [
@@ -85,6 +46,10 @@ class Controller:
         self.cmds = {}
         for key, desc, act in self.commands:
             self.cmds[key] = act
+
+        self.input_queue: Queue[str] = Queue()
+        threading.Thread(target=self.read_stdin, daemon=True).start()
+        self.poll_queue()
 
         self.plotView.root.bind("<Key>", self.handleInput)
         self.plotView.root.mainloop()
@@ -129,6 +94,18 @@ class Controller:
 
         self.refresh()
 
+    def read_stdin(self):
+        for line in sys.stdin:
+            self.input_queue.put(line.rstrip())
+
+    def poll_queue(self):
+        refresh = not self.input_queue.empty()
+        while not self.input_queue.empty():
+            self.model.flatCode = self.input_queue.get().replace('<nl>', '\n')
+        if refresh:
+            self.refresh()
+        self.plotView.root.after(10, self.poll_queue)
+
     def runCommand(self, cmd: str):
         cmd, *args = cmd.split()
         if cmd not in self.cmds:
@@ -141,7 +118,6 @@ class Controller:
     def refresh(self):
         modelTime.append(timed(self.model.compile))
         plotTime.append(timed(self.plotView.draw))
-        consoleTime.append(timed(self.consoleView.draw))
 
 modelTime = []
 plotTime = []
@@ -152,16 +128,12 @@ def timed(f):
     f()
     return time.time() - t
 
-def mainloop(stdscr) -> None:
+def mainloop() -> None:
     try:
-        Controller(stdscr)
+        Controller()
     except KeyboardInterrupt:
         pass
 
 if __name__ == '__main__':
-    run(mainloop)
-    # l = len(modelTime)
-    # print(l)
-    # print(sum(modelTime) / l)
-    # print(sum(plotTime) / l)
-    # print(sum(consoleTime) / l)
+    mainloop()
+
