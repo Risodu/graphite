@@ -88,7 +88,7 @@ class PlotView:
         for i, line, info in zip(range(len(data)), self.lines, data):
             points, kws = info
             line.set_data(*points)
-            line.set_color(colors[i])
+            line.set_color(colors[i % len(colors)])
             for kw in kws:
                 if clrs.is_color_like(kw):
                     line.set_color(kw)

@@ -5,9 +5,9 @@ def namer(name):
 
 # --- Token definitions ---
 integer = Word(nums)
-number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(namer("constant"))
+number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(namer("number"))
 identifier = Word(alphas + '_', alphanums + '_').setParseAction(namer("identifier"))
-operator = oneOf("+ - * / ** ^ ( ) = ,").setParseAction(namer("operator"))
+operator = oneOf("+ - * / ** ^ = ,").setParseAction(namer("operator"))
 comment = Combine(Literal('//') + restOfLine).setParseAction(namer("comment")) # type: ignore
 preprocess = Combine(Literal('#') + Word(alphanums)).setParseAction(namer("preprocess"))
 other = Regex(r"." ).setParseAction(namer("other"))

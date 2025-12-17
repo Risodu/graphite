@@ -1,18 +1,21 @@
 #!/usr/bin/python3
-import threading
 import time
 import sys
 from queue import Queue
 
 from graphite.plotview import PlotView
 from graphite.model import Model
+from graphite.input_handler import InputHandler, StreamInputHandler, LSPInputHandler
+
+HANDLER = LSPInputHandler
 
 class Controller:
     "The main control of the application"
     def __init__(self):
         self.model = Model()
-
         self.plotView = PlotView(self.model)
+        self.input_handler = HANDLER(sys.stdin, sys.stdout, self) # type: ignore
+        self.poll_input()
 
         self.keybinds = [
             ('+', 'Zoom plot in', lambda: self.model.zoom(0.8)),
@@ -39,10 +42,6 @@ class Controller:
         self.cmds = {}
         for key, desc, act in self.commands:
             self.cmds[key] = act
-
-        self.input_queue: Queue[str] = Queue()
-        threading.Thread(target=self.read_stdin, daemon=True).start()
-        self.poll_queue()
 
         self.plotView.root.bind("<Key>", self.handleInput)
         self.plotView.root.mainloop()
@@ -77,17 +76,9 @@ class Controller:
 
         self.refresh()
 
-    def read_stdin(self):
-        for line in sys.stdin:
-            self.input_queue.put(line.rstrip())
-
-    def poll_queue(self):
-        refresh = not self.input_queue.empty()
-        while not self.input_queue.empty():
-            self.model.flatCode = self.input_queue.get().replace('<nl>', '\n')
-        if refresh:
-            self.refresh()
-        self.plotView.root.after(10, self.poll_queue)
+    def poll_input(self):
+        self.input_handler.poll()
+        self.plotView.root.after(10, self.poll_input)
 
     def runCommand(self, cmd: str):
         cmd, *args = cmd.split()
@@ -99,6 +90,7 @@ class Controller:
     def refresh(self):
         modelTime.append(timed(self.model.compile))
         plotTime.append(timed(self.plotView.draw))
+        self.input_handler.compiled()
 
 modelTime = []
 plotTime = []
