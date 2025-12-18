@@ -1,3 +1,4 @@
+from re import sub
 import typing
 import numpy as np
 
@@ -21,6 +22,27 @@ class Expression:
         "Returns list of variables and functions that has to be in the context for the proper evaluation"
         return NotImplemented
 
+    def __add__(self, other: "Expression") -> "Expression":
+        return FunCall('+', [self, other])
+
+    def __sub__(self, other: "Expression") -> "Expression":
+        return FunCall('-', [self, other])
+
+    def __neg__(self) -> "Expression":
+        return FunCall('--', [self])
+
+    def __mul__(self, other: "Expression") -> "Expression":
+        return FunCall('*', [self, other])
+
+    def __truediv__(self, other: "Expression") -> "Expression":
+        return FunCall('/', [self, other])
+
+    def __pow__(self, other: "Expression") -> "Expression":
+        return FunCall('**', [self, other])
+
+    def diff(self, param: "Variable") -> "Expression":
+        return FunCall('diff', [param, self])
+
 class Constant(Expression):
     "A constant numeric value"
     def __init__(self, value: float) -> None:
@@ -39,7 +61,7 @@ class Constant(Expression):
         return str(self.value)
 
 class Variable(Expression):
-    "Single variable which value is provided by the context"
+    "Single v)ariable which value is provided by the context"
     def __init__(self, id: str) -> None:
         self.id = id
 
@@ -79,6 +101,8 @@ class FunCall(Expression):
         return f'FunCall("{self.fname}", {self.args})'
 
     def __str__(self) -> str:
+        if self.fname in ('+', '-', '*', '/', '**'):
+            return f'{self.args[0]} {self.fname} {self.args[1]}'
         return f'{self.fname}({", ".join(map(str, self.args))})'
 
 class Function:
@@ -120,7 +144,7 @@ class UserFunction(Function):
         "Call the function in the given context on the given arguments"
         if len(args) != len(self.args):
             raise TypeError(f'expected {len(self.args)} paramenters, got {len(args)}')
-        
+
         context = context.copy()
         for k, v in zip(self.args, args):
             context.variables[k] = v.evaluate(context)
@@ -132,7 +156,7 @@ class UserFunction(Function):
 
 class DiffFunctional(Function):
     "Functional that computes derivative of function"
-    
+
     EPS = 0.0000001
     def __init__(self) -> None:
         pass
@@ -204,6 +228,57 @@ class SumFunctional(Function):
 
     def getDescription(self) -> str:
         return 'Computes derivative of given function against given variable. Example: diff(sin(t),t) = cos(t)'
+
+# import inspect
+# import sys
+# sys.setrecursionlimit(250)
+def diffRewrite(expr: Expression) -> Expression:
+    "Rewrite expression such that the number of DiffFunctional instances is minimized"
+    if not isinstance(expr, FunCall): return expr
+    if expr.fname != 'diff':
+        return FunCall(expr.fname, [diffRewrite(a) for a in expr.args])
+
+    if len(expr.args) != 2:
+        raise TypeError(f'diff expected 2 paramenters, got {len(expr.args)}')
+
+    param, subexpr = expr.args
+    if not isinstance(param, Variable):
+        raise TypeError(f'differentiated variable must be variable')
+
+    subexpr = diffRewrite(subexpr)
+
+    if isinstance(subexpr, Constant):
+        return Constant(0)
+
+    if isinstance(subexpr, Variable):
+        return Constant(1 if subexpr.id == param.id else 0)
+
+    if isinstance(subexpr, FunCall):
+        fn = subexpr.fname
+
+        inners = [a.diff(param) for a in subexpr.args]
+        if fn == '+':
+            return diffRewrite(inners[0] + inners[1])
+
+        if fn == '-':
+            return diffRewrite(inners[0] - inners[1])
+
+        if fn == '--':
+            return diffRewrite(-inners[0])
+
+        if fn == '*':
+            return diffRewrite(subexpr.args[1] * inners[0] + subexpr.args[0] * inners[1])
+
+        if fn == '/':
+            return diffRewrite((subexpr.args[1] * inners[0] + subexpr.args[0] * inners[1]) / (subexpr.args[1] ** Constant(2)))
+
+        if fn == 'sin':
+            return diffRewrite(FunCall('*', [FunCall('cos', subexpr.args), inners[0]]))
+
+        if fn == 'cos':
+            return diffRewrite(FunCall('--', [FunCall('*', [FunCall('sin', subexpr.args), inners[0]])]))
+
+    return expr
 
 def extract(arr: np.ndarray):
     while arr.shape: arr = arr[0]

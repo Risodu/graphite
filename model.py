@@ -2,7 +2,7 @@ import numpy as np
 import typing
 
 from graphite.eqparser import parseFundef, parseParamPlot, parseNull, FatalSyntaxError
-from graphite.xmath import Context, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional
+from graphite.xmath import Context, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional, diffRewrite
 
 class Interval:
     "Span determined by its endpoints."
@@ -173,6 +173,12 @@ class Model:
 
             else:
                 name, func = line
+                try:
+                    func.expr = diffRewrite(func.expr)
+                except TypeError as err:
+                    self.errors[i] = str(i)
+                    continue
+
                 context.functions[name] = func
                 if len(func.args) != 1:
                     continue
@@ -201,6 +207,11 @@ class Model:
         if y: self.yrange.zoom(scale)
 
 if __name__ == '__main__':
+    df = parseFundef('diff(x,diff(x,diff(x,sin(x))))')[0][0]
+    # df = parseFundef('diff(x,sin(x))')[0][0]
+    print(df)
+    df = diffRewrite(df) # type: ignore
+    print(df)
     for k, v in builtins.functions.items():
         print('\n' * 50)
         print(k, v.getDescription())
