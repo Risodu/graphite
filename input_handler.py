@@ -1,7 +1,7 @@
 import threading
 import sys
 import json
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, TextIO, Any
 from queue import Queue
 
 from graphite.tokenizer import tokenize
@@ -16,7 +16,7 @@ class InputHandler:
         self.output = output
         self.controller = controller
         self.queue = Queue()
-        threading.Thread(target=self.read_input, daemon=True).start()
+        self.input_thread = threading.Thread(target=self.read_input, daemon=False).start()
 
     def read_input(self):
         for line in self.input:
@@ -42,15 +42,27 @@ class StreamInputHandler(InputHandler):
         self.controller.model.code = msg.split('<nl>')
         return True
 
+def method(func):
+    func._isMethod = True
+    return func
+
 class LSPInputHandler(InputHandler):
     def __init__(self, input: TextIO, output: TextIO, controller: "Controller"):
         super().__init__(input, output, controller)
         self.file = None
 
+        self.methods = {}
+        for name in dir(self):
+            method = getattr(self, name)
+            if not hasattr(method, "_isMethod"): continue
+            self.methods[name.replace('_', '/')] = method
+
     def read_message(self):
         headers = {}
         while True:
-            line = self.input.readline().strip()
+            line = self.input.readline()
+            if line == '': return True
+            line = line.rstrip()
             if not line:
                 break
             key, value = line.split(": ")
@@ -62,7 +74,6 @@ class LSPInputHandler(InputHandler):
             self.queue.put(json.loads(body))
 
     def send_message(self, msg):
-        msg['jsonrpc'] = '2.0'
         body = json.dumps(msg)
         self.output.write(
             f"Content-Length: {len(body)}\r\n\r\n{body}"
@@ -71,108 +82,113 @@ class LSPInputHandler(InputHandler):
 
     def read_input(self):
         while True:
-            self.read_message()
+            if self.read_message(): break
+
+    @method
+    def initialize(self, params) -> tuple[bool, Any]:
+        return False, {
+            "capabilities": {
+                "textDocumentSync": {
+                    "openClose": True,
+                    "change": 1,
+                    "save": True
+                },
+                "semanticTokensProvider": {
+                    "legend": {
+                        "tokenTypes": [
+                            'comment',
+                            'modifier',
+                            'number',
+                            'variable',
+                            'function',
+                            'operator'
+                            # 'namespace','type','class','enum','interface','struct','typeParameter','parameter','variable','property','enumMember','event','function','method','macro','keyword','modifier','comment','string','number','regexp','operator','decorator'
+                        ],
+                        "tokenModifiers": [
+                            'defaultLibrary',
+                            'static'
+                        ]
+                    },
+                    "full": True,
+                    "range": True
+                }
+            }
+        }
+
+    @method
+    def shutdown(self, params) -> tuple[bool, Any]:
+        return False, None
+
+    @method
+    def exit(self, params) -> tuple[bool, Any]:
+        exit(0)
+
+    @method
+    def textDocument_didOpen(self, params) -> tuple[bool, Any]:
+        self.file = params['textDocument']['uri']
+        self.controller.model.code = params['textDocument']['text'].split('\n')
+        return True, False
+
+    @method
+    def textDocument_didChange(self, params) -> tuple[bool, Any]:
+        self.file = params['textDocument']['uri']
+        for change in params['contentChanges']:
+            self.controller.model.code = change['text'].split('\n')
+            print(self.controller.model.code)
+        return True, False
+
+    @method
+    def textDocument_semanticTokens_full(self, params) -> tuple[bool, Any]:
+        lookup = 'comment preprocess number identifier function operator'.split()
+        result = []
+        prevLine = 0
+        for i, line in enumerate(self.controller.model.code):
+            try:
+                tokens = tokenize(line)
+            except Exception:
+                continue
+
+            prevChar = 0
+            for token in tokens:
+                if token[0] == 'other': continue
+                # result += [i - prevLine, token[2] - prevChar, len(token[1]), i, 0] # type: ignore
+                mod = 0
+                type = lookup.index(token[0]) # type: ignore
+                if token[1] in builtins.functions:
+                    type = lookup.index('function')
+                    # mod = 1
+
+                if token[1] in builtins.variables:
+                    mod = 2
+
+                result += [i - prevLine, token[2] - prevChar, len(token[1]), type, mod] # type: ignore
+                prevLine = i
+                prevChar = token[2]
+
+        return False, {'data': result}
 
     def process(self, msg) -> bool:
         method = msg.get('method')
-        # print(msg, file=sys.stderr)
+        print(method, file=sys.stderr)
         if method is None:
             return False
 
-        if method == "initialize":
-            self.send_message({
-                "id": msg["id"],
-                "result": {
-                    "capabilities": {
-                        "textDocumentSync": {
-                            "openClose": True,
-                            "change": 1,
-                            "save": True
-                        },
-                        "semanticTokensProvider": {
-                            "legend": {
-                                "tokenTypes": [
-                                    'comment',
-                                    'modifier',
-                                    'number',
-                                    'variable',
-                                    'function',
-                                    'operator'
-                                    # 'namespace','type','class','enum','interface','struct','typeParameter','parameter','variable','property','enumMember','event','function','method','macro','keyword','modifier','comment','string','number','regexp','operator','decorator'
-                                ],
-                                "tokenModifiers": [
-                                    'defaultLibrary',
-                                    'static'
-                                ]
-                            },
-                            "full": True,
-                            "range": False
-                        }
-                    }
-                }
-            })
+        mtd = self.methods.get(method)
+        if mtd is None:
+            print('Call to unimplemented method:', msg, file=sys.stderr)
             return False
 
-        if method == "shutdown":
-            self.send_message({
-                "id": msg["id"],
-                "result": None
-            })
-            return False
+        refresh, result = mtd(msg.get('params'))
 
-        if method == "exit":
-            sys.exit(0)
-
-        if method == 'textDocument/didOpen':
-            self.file = msg['params']['textDocument']['uri']
-            self.controller.model.code = msg['params']['textDocument']['text'].split('\n')
-            return True
-
-        if method == 'textDocument/didChange':
-            self.file = msg['params']['textDocument']['uri']
-            for change in msg['params']['contentChanges']:
-                self.controller.model.code = change['text'].split('\n')
-                print(self.controller.model.code)
-            return True
-
-        if method == 'textDocument/semanticTokens/full':
-            lookup = 'comment preprocess number identifier function operator'.split()
-            result = []
-            # result = [0,0,5,1,0]
-            prevLine = 0
-            for i, line in enumerate(self.controller.model.code):
-                try:
-                    tokens = tokenize(line)
-                except Exception:
-                    continue
-
-                prevChar = 0
-                for token in tokens:
-                    if token[0] == 'other': continue
-                    # result += [i - prevLine, token[2] - prevChar, len(token[1]), i, 0] # type: ignore
-                    mod = 0
-                    type = lookup.index(token[0]) # type: ignore
-                    if token[1] in builtins.functions:
-                        type = lookup.index('function')
-                        # mod = 1
-
-                    if token[1] in builtins.variables:
-                        mod = 2
-
-                    result += [i - prevLine, token[2] - prevChar, len(token[1]), type, mod] # type: ignore
-                    prevLine = i
-                    prevChar = token[2]
-
-            self.send_message({
+        if result != False:
+            response = {
+                'jsonrpc': '2.0',
                 'id': msg['id'],
-                'result': {'data': result}
-            })
-
-            return False
-
-        print(msg, file=sys.stderr)
-
-        return False
+            }
+            # if result is not None:
+            response['result'] = result
+            self.send_message(response)
+        return refresh
 
     def compiled(self):
         if self.file is None: return
@@ -199,3 +215,4 @@ class LSPInputHandler(InputHandler):
                 "diagnostics": diagnostics
             }
         })
+
