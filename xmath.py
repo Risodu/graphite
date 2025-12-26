@@ -131,7 +131,7 @@ class IntegerFunction(SimpleFunction):
 
 class UserFunction(Function):
     """The compiled definition of function
-    
+
     Attributes:
         args (list[str]): List of argument names
         expr (Expression): The expression that contains the function definition
@@ -256,27 +256,33 @@ def diffRewrite(expr: Expression) -> Expression:
     if isinstance(subexpr, FunCall):
         fn = subexpr.fname
 
-        inners = [a.diff(param) for a in subexpr.args]
+        inners = [diffRewrite(a.diff(param)) for a in subexpr.args]
         if fn == '+':
-            return diffRewrite(inners[0] + inners[1])
+            return inners[0] + inners[1]
 
         if fn == '-':
-            return diffRewrite(inners[0] - inners[1])
+            return inners[0] - inners[1]
 
         if fn == '--':
-            return diffRewrite(-inners[0])
+            return -inners[0]
 
         if fn == '*':
-            return diffRewrite(subexpr.args[1] * inners[0] + subexpr.args[0] * inners[1])
+            return subexpr.args[1] * inners[0] + subexpr.args[0] * inners[1]
 
         if fn == '/':
-            return diffRewrite((subexpr.args[1] * inners[0] + subexpr.args[0] * inners[1]) / (subexpr.args[1] ** Constant(2)))
+            return (subexpr.args[1] * inners[0] - subexpr.args[0] * inners[1]) / (subexpr.args[1] ** Constant(2))
 
         if fn == 'sin':
-            return diffRewrite(FunCall('*', [FunCall('cos', subexpr.args), inners[0]]))
+            return FunCall('cos', subexpr.args) * inners[0]
 
         if fn == 'cos':
-            return diffRewrite(FunCall('--', [FunCall('*', [FunCall('sin', subexpr.args), inners[0]])]))
+            return -FunCall('sin', subexpr.args) * inners[0]
+
+        if fn == 'exp':
+            return subexpr * inners[0]
+
+        if fn == 'log':
+            return inners[0] / subexpr.args[0]
 
     return expr
 

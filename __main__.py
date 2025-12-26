@@ -1,33 +1,36 @@
 #!/usr/bin/python3
 import time
 import sys
+import optparse
 from queue import Queue
 
 from graphite.plotview import PlotView
 from graphite.model import Model
 from graphite.input_handler import InputHandler, StreamInputHandler, LSPInputHandler
 
-HANDLER = LSPInputHandler
-
 class Controller:
     "The main control of the application"
-    def __init__(self):
+    def __init__(self, inHandler: type[InputHandler]):
         self.model = Model()
         self.plotView = PlotView(self.model)
-        self.input_handler = HANDLER(sys.stdin, sys.stdout, self) # type: ignore
+        self.input_handler = inHandler(sys.stdin, sys.stdout, self) # type: ignore
         self.poll_input()
 
         self.keybinds = [
             ('+', 'Zoom plot in', lambda: self.model.zoom(0.8)),
             ('-', 'Zoom plot out', lambda: self.model.zoom(1.25)),
+            ('L', 'Zoom x-axis in', lambda: self.model.xrange.zoom(0.8)),
+            ('H', 'Zoom x-axis out', lambda: self.model.xrange.zoom(1.25)),
+            ('K', 'Zoom y-axis in', lambda: self.model.yrange.zoom(0.8)),
+            ('J', 'Zoom y-axis out', lambda: self.model.yrange.zoom(1.25)),
             ('Right', 'Shift plot Right', lambda: self.model.xrange.relshift(0.2)),
             ('Left', 'Shift plot Left', lambda: self.model.xrange.relshift(-0.2)),
             ('Up', 'Shift plot Up', lambda: self.model.yrange.relshift(0.2)),
             ('Down', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
-            ('Ctrl+l', 'Shift plot Right', lambda: self.model.xrange.relshift(0.2)),
-            ('Ctrl+h', 'Shift plot Left', lambda: self.model.xrange.relshift(-0.2)),
-            ('Ctrl+k', 'Shift plot Up', lambda: self.model.yrange.relshift(0.2)),
-            ('Ctrl+j', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
+            ('l', 'Shift plot Right', lambda: self.model.xrange.relshift(0.2)),
+            ('h', 'Shift plot Left', lambda: self.model.xrange.relshift(-0.2)),
+            ('k', 'Shift plot Up', lambda: self.model.yrange.relshift(0.2)),
+            ('j', 'Shift plot Down', lambda: self.model.yrange.relshift(-0.2)),
         ]
 
         self.commands = [
@@ -88,8 +91,8 @@ class Controller:
             m = self.cmds[cmd](*args) or ''
 
     def refresh(self):
-        modelTime.append(timed(self.model.compile))
-        plotTime.append(timed(self.plotView.draw))
+        self.model.compile()
+        self.plotView.draw()
         self.input_handler.compiled()
 
 modelTime = []
@@ -102,8 +105,15 @@ def timed(f):
     return time.time() - t
 
 def mainloop() -> None:
+    # parser = optparse.OptionParser()
+    # parser.add_option("-h", "--help", action="help")
+    # parser.add_option('-b', '--simple', action='store_const', const=InputHandler, dest='inHandler', default=InputHandler, help='Use simple IO format')
+    # parser.add_option('-s', '--stream', action='store_const', const=StreamInputHandler, dest='inHandler', help='Use stream IO format')
+    # parser.add_option('-l', '--lsp', action='store_const', const=LSPInputHandler, dest='inHandler', help='Use LSP IO format')
+    # options, args = parser.parse_args(sys.argv)
     try:
-        Controller()
+        Controller(LSPInputHandler)
+        # Controller(parser.inHandler)
     except KeyboardInterrupt:
         pass
 

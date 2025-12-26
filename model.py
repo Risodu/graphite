@@ -212,7 +212,7 @@ if __name__ == '__main__':
     print(df)
     df = diffRewrite(df) # type: ignore
     print(df)
-    for k, v in builtins.functions.items():
-        print('\n' * 50)
-        print(k, v.getDescription())
-        input()
+    # for k, v in builtins.functions.items():
+    #     print('\n' * 50)
+    #     print(k, v.getDescription())
+    #     input()

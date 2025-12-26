@@ -46,6 +46,7 @@ def preprocess(s: str) -> tuple[str, list[str]]:
         return ''
     return preprocessKeyword.sub(repl, s), kws
 
+# FIXME: Type annotation is completely wrong here, possibly also somewhere else 
 def parseFundef(s: str) -> tuple[tuple[str, list[Expression], Expression], list[str]]:
     "Parse the string into function definition, raise `SyntaxError` on error"
     s, kws = preprocess(s)
