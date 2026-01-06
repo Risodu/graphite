@@ -111,6 +111,11 @@ class LSPInputHandler(InputHandler):
                     },
                     "full": True,
                     "range": True
+                },
+                "executeCommandProvider": {
+                    "commands": [
+                        "graphite.usercmd",
+                    ]
                 }
             }
         }
@@ -166,6 +171,15 @@ class LSPInputHandler(InputHandler):
                 prevChar = token[2]
 
         return False, {'data': result}
+
+    @method
+    def workspace_executeCommand(self, params) -> tuple[bool, Any]:
+        cmd = params['command']
+        args = params['arguments']
+        res = 'Invalid command'
+        if cmd == 'graphite.usercmd':
+            res = self.controller.runCommand(''.join(args))
+        return False, res
 
     def process(self, msg) -> bool:
         method = msg.get('method')

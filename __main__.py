@@ -34,8 +34,8 @@ class Controller:
         ]
 
         self.commands = [
-            (':q', 'Quit the application', lambda: self.plotView.root.quit()),
-            (':e', 'Export the plot', lambda name = None: self.plotView.export(name))
+            ('q', 'Quit the application', lambda: self.plotView.root.quit()),
+            ('e', 'Export the plot', lambda name = None: self.plotView.export(name))
         ]
 
         self.keymaps = {}
@@ -84,11 +84,14 @@ class Controller:
         self.plotView.root.after(10, self.poll_input)
 
     def runCommand(self, cmd: str):
+        if not cmd.strip():
+            return 'No command supplied'
         cmd, *args = cmd.split()
         if cmd not in self.cmds:
             m = f'Unknown command: "{cmd}"'
         else:
             m = self.cmds[cmd](*args) or ''
+        return m
 
     def refresh(self):
         self.model.compile()
