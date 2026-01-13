@@ -107,6 +107,7 @@ class PlotView:
         for i, line, info in zip(range(len(data)), self.lines, data):
             line.reset()
             points, kws = info
+            line.set_visible(True)
             line.set_data(*points)
             line.set_color(colors[i % len(colors)])
             for kw in kws:
@@ -114,6 +115,10 @@ class PlotView:
                     line.set_color(kw)
                 if clrs.is_color_like('#' + kw):
                     line.set_color('#' + kw)
+
+                if kw == "hide":
+                    line.set_visible(False)
+                    continue
 
                 if '=' in kw:
                     k, v = kw.split('=')

@@ -197,8 +197,7 @@ class Model:
                         context.variables[name] = y
                         res = [x, y]
 
-                    if 'hide' not in kws:
-                        results.append((res, kws))
+                    results.append((res, kws))
                 except (TypeError, NameError) as err:
                     self.errors[i] = str(err)
 
