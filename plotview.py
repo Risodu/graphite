@@ -1,3 +1,4 @@
+from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.colors as clrs
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -26,7 +27,7 @@ class PlotView:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         # self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        self.lines = []
+        self.lines: list[Line2D] = []
 
         self.ax.axhline(0, color="black", linewidth=1)
         self.ax.axvline(0, color="black", linewidth=1)
@@ -95,9 +96,21 @@ class PlotView:
                 if clrs.is_color_like('#' + kw):
                     line.set_color('#' + kw)
 
+                if '=' in kw:
+                    k, v = kw.split('=')
+                    try:
+                        getattr(line, 'set_' + k)(v)
+                        # FIXME: report errors to user
+                    except ValueError:
+                        pass
+                    except AttributeError:
+                        pass
+
+
         self.ax.set_xlim(*self.model.xrange)
         self.ax.set_ylim(*self.model.yrange)
         self.ax.set_visible(True)
+        self.ax.legend()
         self.canvas.draw()
 
     def export(self, filename: str | None):

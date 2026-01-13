@@ -1,6 +1,6 @@
 // Classic function plotting
 sin(x)
-x ** 2 + x - 1
+x ** 2 + x - 1 #color="red" "Quadratic \"function\""
 
 // Custom variables
 a = 1 / x

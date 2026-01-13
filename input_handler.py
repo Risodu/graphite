@@ -101,7 +101,8 @@ class LSPInputHandler(InputHandler):
                             'number',
                             'variable',
                             'function',
-                            'operator'
+                            'operator',
+                            'string'
                             # 'namespace','type','class','enum','interface','struct','typeParameter','parameter','variable','property','enumMember','event','function','method','macro','keyword','modifier','comment','string','number','regexp','operator','decorator'
                         ],
                         "tokenModifiers": [
@@ -144,7 +145,7 @@ class LSPInputHandler(InputHandler):
 
     @method
     def textDocument_semanticTokens_full(self, params) -> tuple[bool, Any]:
-        lookup = 'comment preprocess number identifier function operator'.split()
+        lookup = 'comment preprocess number identifier function operator string'.split()
         result = []
         prevLine = 0
         for i, line in enumerate(self.controller.model.code):

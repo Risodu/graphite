@@ -9,11 +9,12 @@ number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(nam
 identifier = Word(alphas + '_', alphanums + '_').setParseAction(namer("identifier"))
 operator = oneOf("+ - * / ** ^ = ,").setParseAction(namer("operator"))
 comment = Combine(Literal('//') + restOfLine).setParseAction(namer("comment")) # type: ignore
-preprocess = Combine(Literal('#') + Word(alphanums)).setParseAction(namer("preprocess"))
+preprocess = Combine(Literal('#') + (Word(alphanums))).setParseAction(namer("preprocess"))
+string = Combine(Optional('=') + '"' + Regex(r'(\\"|[^"])+') + '"').setParseAction(namer("string")) # type: ignore
 other = Regex(r"." ).setParseAction(namer("other"))
 
 # --- Assemble tokenizer ---
-token = comment | preprocess | number | identifier | operator | other
+token = comment | preprocess | number | identifier | operator | string | other
 token.ignore(White(" \t"))
 
 tokenizer = OneOrMore(token)
@@ -22,6 +23,6 @@ def tokenize(code: str) -> list[tuple[str, str, int]]:
     return tokenizer.parseString(code)
 
 if __name__ == "__main__":
-    test_string = "sin(x)+3.14*y-2/z #red #dashed // comment"
+    test_string = 'sin(x)+3.14*y-2/z #color="bloody red" #dashed // comment'
     for tok in tokenizer.parseString(test_string):
         print(tok)

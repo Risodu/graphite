@@ -36,13 +36,22 @@ expression <<= infixNotation(atom, [
 fundef = Optional(identifier + Optional(Group(Suppress('(') + Optional(arglist) + Suppress(')'))) + Suppress('=')) + expression + Optional(comment)
 paramplot = Suppress('(') + Group(arglist) + Suppress(')') + Optional(Suppress('[') + Group(arglist) + Suppress(']')) + Optional(comment)
 null = Optional(comment)
-preprocessKeyword = re.compile(r'#\w+')
+preprocessKeyword = re.compile(r'(#\w+(=?"(\\"|[^"])+")?)|("(\\"|[^"])+")')
 
 def preprocess(s: str) -> tuple[str, list[str]]:
     "Preprocess the string, filtering out the preprocess keywords"
-    kws = []
-    def repl(m: re.Match):
-        kws.append(m[0][1:])
+    kws: list[str] = []
+    def repl(m: re.Match[str]):
+        kw = m[0]
+        kw = kw.strip('#')
+        if kw[0] == '"':
+            kw = 'label=' + kw
+        if '=' not in kw and '"' in kw:
+            i = kw.find('"')
+            kw = kw[:i] + '=' + kw[i:]
+        if '"' in kw:
+            kw = kw.replace('="', '=').removesuffix('"')
+        kws.append(kw.replace('\\"', '"'))
         return ''
     return preprocessKeyword.sub(repl, s), kws
 
