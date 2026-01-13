@@ -117,6 +117,14 @@ class PlotView:
 
                 if '=' in kw:
                     k, v = kw.split('=')
+
+                    if k == "xlabel":
+                        self.ax.set_xlabel(v)
+                        continue
+                    if k == "ylabel":
+                        self.ax.set_ylabel(v)
+                        continue
+
                     try:
                         line[k] = v
                         # FIXME: report errors to user
