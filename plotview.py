@@ -17,6 +17,24 @@ def multabs(x):
 MAJOR_TICKS = 15
 colors = plt.get_cmap('tab10').colors # type: ignore
 
+class ResettableLine(Line2D):
+    changes: dict
+    @classmethod
+    def fromBase(cls, obj: Line2D) -> "ResettableLine":
+        obj.__class__ = cls
+        obj.changes = {} # type: ignore
+        return obj # type: ignore
+
+    def __setitem__(self, k: str, v):
+        if k not in self.changes:
+            self.changes[k] = getattr(self, 'get_' + k)()
+        getattr(self, 'set_' + k)(v)
+
+    def reset(self):
+        for k, v in self.changes.items():
+            self[k] = v
+        self.changes.clear()
+
 class PlotView:
     "Class that manages the view of the plot"
     def __init__(self, model: Model) -> None:
@@ -27,7 +45,7 @@ class PlotView:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         # self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        self.lines: list[Line2D] = []
+        self.lines: list[ResettableLine] = []
 
         self.ax.axhline(0, color="black", linewidth=1)
         self.ax.axvline(0, color="black", linewidth=1)
@@ -80,13 +98,14 @@ class PlotView:
         
         data = self.model.execute(x)
         while len(self.lines) < len(data):
-            self.lines += self.ax.plot(x, x)
+            self.lines += map(ResettableLine.fromBase, self.ax.plot(x, x))
 
         while len(self.lines) > len(data):
             l = self.lines.pop()
             l.remove()
 
         for i, line, info in zip(range(len(data)), self.lines, data):
+            line.reset()
             points, kws = info
             line.set_data(*points)
             line.set_color(colors[i % len(colors)])
@@ -99,7 +118,7 @@ class PlotView:
                 if '=' in kw:
                     k, v = kw.split('=')
                     try:
-                        getattr(line, 'set_' + k)(v)
+                        line[k] = v
                         # FIXME: report errors to user
                     except ValueError:
                         pass
