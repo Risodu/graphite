@@ -10,5 +10,8 @@ b = a ** 2
 f(x,y) = sin(x) * cos(y)
 f(x, 2*x) #linestyle="dashed"
 
+// Polar plots
+r = theta
+
 // Parametric plots
 (t + sin(t), 1 - cos(t))[t,-10,10]

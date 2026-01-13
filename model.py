@@ -185,11 +185,20 @@ class Model:
 
                 try:
                     c = context.copy()
-                    c.variables['x'] = x
-                    res = func.evaluate(c, [Variable('x')])
-                    context.variables[name] = res
+
+                    if name == 'r': # polar plots
+                        theta = np.linspace(0, 2 * np.pi, 200)
+                        c.variables['theta'] = theta
+                        radius = func.evaluate(c, [Variable('theta')])
+                        res = [radius * np.cos(theta), radius * np.sin(theta)]
+                    else:
+                        c.variables['x'] = x
+                        y = func.evaluate(c, [Variable('x')])
+                        context.variables[name] = y
+                        res = [x, y]
+
                     if 'hide' not in kws:
-                        results.append(([x, res], kws))
+                        results.append((res, kws))
                 except (TypeError, NameError) as err:
                     self.errors[i] = str(err)
 
