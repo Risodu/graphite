@@ -72,10 +72,12 @@ def parseParamPlot(s: str) -> tuple[list[list[Expression]], list[str]]:
     except ParseException:
         raise FatalSyntaxError('Invalid syntax')
 
-def parseNull(s: str) -> None:
+def parseNull(s: str) -> tuple[None, list[str]]:
     "Parse the string into nothing, raise `SyntaxError` on error"
+    s, kws = preprocess(s)
     try:
-        return null.parseString(s, parseAll=True) # type: ignore
+        null.parseString(s, parseAll=True)
+        return None, kws # type: ignore
     except ParseException:
         raise FatalSyntaxError('Invalid syntax')
 

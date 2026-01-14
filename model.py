@@ -77,7 +77,7 @@ def compileParamPlot(line: str):
     return ParamPlot(exprs[0], exprs[1], params[0].id, params[1], params[2]), kws
 
 def compileNull(line: str):
-    parseNull(line)
+    return parseNull(line)
 
 def compileLine(line: str):
     err = None
@@ -137,7 +137,7 @@ class Model:
     def __init__(self) -> None:
         self.xrange = Interval()
         self.yrange = Interval()
-        self.compiled: list[tuple[tuple[str, UserFunction] | ParamPlot, list[str]] | None] = []
+        self.compiled: list[tuple[tuple[str, UserFunction] | ParamPlot | None, list[str]]] = []
         self.errors: list[str | None] = []
         self.code = ['']
         self.compile()
@@ -145,7 +145,7 @@ class Model:
     def compile(self):
         "Compile the code, updating attributes `compiled` and `errors`"
         self.lines = len(self.code)
-        self.compiled = [None] * self.lines
+        self.compiled = [(None, [])] * self.lines
         self.errors = [None] * self.lines
 
         for i, line in enumerate(self.code):
@@ -162,10 +162,10 @@ class Model:
         results = []
 
         for i, line in enumerate(self.compiled):
-            if line is None: continue
             line, kws = line
-
-            if isinstance(line, ParamPlot):
+            if line is None:
+                results.append(([np.empty((0,)), np.empty((0,))], kws))
+            elif isinstance(line, ParamPlot):
                 try:
                     results.append((line.evaluate(context), kws))
                 except (TypeError, NameError) as err:
