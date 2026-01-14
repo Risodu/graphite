@@ -95,7 +95,9 @@ class PlotView:
         self.ax.set_visible(False)
         # self.ax.clear()
         self.recomputeTiks()
-        
+        self.ax.set_xlabel('')
+        self.ax.set_xlabel('')
+
         data = self.model.execute(x)
         while len(self.lines) < len(data):
             self.lines += map(ResettableLine.fromBase, self.ax.plot(x, x))
