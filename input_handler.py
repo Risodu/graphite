@@ -223,6 +223,18 @@ class LSPInputHandler(InputHandler):
                 'source': 'graphite'
             })
 
+        for i, res in enumerate(model.directResults):
+            if not res: continue
+            diagnostics.append({
+                'range': {
+                    'start': {'line': i, 'character': 0},
+                    'end': {'line': i, 'character': 0}
+                },
+                'severity': 4,
+                'message': res,
+                'source': 'graphite'
+            })
+
         self.send_message({
             "method": "textDocument/publishDiagnostics",
             "params": {

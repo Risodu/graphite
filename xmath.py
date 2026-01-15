@@ -1,10 +1,204 @@
-from re import sub
 import typing
 import numpy as np
+import math
+import dataclasses
+
+class Value:
+    def asInteger(self) -> typing.Any:
+        return NotImplemented
+
+    def applyFunction(self, name: str, others: list["Value"]) -> "Value":
+        return NotImplemented
+
+    def __add__(self, other: "Value") -> "Value": return self.applyFunction("add", [other])
+    def __sub__(self, other: "Value") -> "Value": return self.applyFunction("sub", [other])
+    def __mul__(self, other: "Value") -> "Value": return self.applyFunction("mul", [other])
+    def __truediv__(self, other: "Value") -> "Value": return self.applyFunction("div", [other])
+    def __pow__(self, other: "Value") -> "Value": return self.applyFunction("pow", [other])
+    def __neg__(self) -> "Value": return self.applyFunction("neg", [])
+    def __pos__(self) -> "Value": return self
+    def __abs__(self) -> "Value": return self.applyFunction("abs", [])
+
+@dataclasses.dataclass
+class Scalar(Value):
+    value: float
+
+    functions = [{
+        'neg': float.__neg__,
+        'abs': abs,
+
+        # --- trigonometric ---
+        'sin': math.sin,
+        'cos': math.cos,
+        'tan': math.tan,
+        'asin': math.asin,
+        'acos': math.acos,
+        'atan': math.atan,
+        'atan2': math.atan2,
+
+        # --- hyperbolic ---
+        'sinh': math.sinh,
+        'cosh': math.cosh,
+        'tanh': math.tanh,
+        'asinh': math.asinh,
+        'acosh': math.acosh,
+        'atanh': math.atanh,
+
+        # --- exponential & logarithmic ---
+        'exp': math.exp,
+        'expm1': math.expm1,
+        'log': math.log,        # natural log
+        'log10': math.log10,
+        'log2': math.log2,
+        'log1p': math.log1p,
+
+        # --- roots & powers ---
+        'sqrt': math.sqrt,
+        'cbrt': lambda x: x ** (1.0 / 3.0),
+
+        # --- rounding ---
+        'floor': math.floor,
+        'ceil': math.ceil,
+        'trunc': math.trunc,
+        'round': round,
+
+        # --- misc ---
+        'sign': lambda x: -1.0 if x < 0 else (1.0 if x > 0 else 0.0),
+        'deg': math.degrees,
+        'rad': math.radians,
+    },
+    {
+        'add': float.__add__,
+        'sub': float.__sub__,
+        'mul': float.__mul__,
+        'div': float.__truediv__,
+        'pow': math.pow,
+    }]
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    def asInteger(self):
+        return round(self.value)
+
+    def applyFunction(self, name: str, others: list["Value"]) -> "Value":
+        argTypes = ', '.join(i.__class__.__name__ for i in [self, *others])
+        noFunErr = TypeError(f'No overload of {name} takes arguments {argTypes}')
+
+        if len(others) == 0:
+            fn = Scalar.functions[0].get(name, None)
+            if fn is None:
+                raise noFunErr
+            return Scalar(fn(self.value))
+
+        if len(others) == 1:
+            o = others[0]
+
+            if isinstance(o, Scalar):
+                fn = Scalar.functions[1].get(name, None)
+                if fn is None: raise noFunErr
+                return Scalar(fn(self.value, o.value))
+            elif isinstance(o, Vector):
+                fn = Vector.functions[1].get(name, None)
+                if fn is None: raise noFunErr
+                return Vector(fn(self.value, o.data))
+            else:
+                raise TypeError(o, isinstance(o, Scalar))
+
+        raise noFunErr
+
+@dataclasses.dataclass
+class Vector(Value):
+    data: np.ndarray
+
+    functions = [{
+        # --- unary arithmetic ---
+        'neg': np.negative,
+        'abs': np.abs,
+
+        # --- trigonometric ---
+        'sin': np.sin,
+        'cos': np.cos,
+        'tan': np.tan,
+        'asin': np.arcsin,
+        'acos': np.arccos,
+        'atan': np.arctan,
+        'atan2': np.arctan2,
+
+        # --- hyperbolic ---
+        'sinh': np.sinh,
+        'cosh': np.cosh,
+        'tanh': np.tanh,
+        'asinh': np.arcsinh,
+        'acosh': np.arccosh,
+        'atanh': np.arctanh,
+
+        # --- exponential & logarithmic ---
+        'exp': np.exp,
+        'expm1': np.expm1,
+        'log': np.log,
+        'log10': np.log10,
+        'log2': np.log2,
+        'log1p': np.log1p,
+
+        # --- roots & powers ---
+        'sqrt': np.sqrt,
+        'cbrt': np.cbrt,
+
+        # --- rounding ---
+        'floor': np.floor,
+        'ceil': np.ceil,
+        'trunc': np.trunc,
+        'round': np.round,
+
+        # --- misc ---
+        'sign': np.sign,
+        'deg': np.degrees,
+        'rad': np.radians,
+    },
+    {
+        # --- binary arithmetic ---
+        'add': np.add,
+        'sub': np.subtract,
+        'mul': np.multiply,
+        'div': np.true_divide,
+        'pow': np.power,
+    }]
+
+    def asInteger(self):
+        return self.data.astype(np.int64)
+
+    def applyFunction(self, name: str, others: list["Value"]) -> "Value":
+        argTypes = ', '.join(i.__class__.__name__ for i in [self, *others])
+        noFunErr = TypeError(f'No overload of {name} takes arguments {argTypes}')
+
+        if len(others) == 0:
+            fn = Vector.functions[0].get(name, None)
+            if fn is None:
+                raise noFunErr
+            return Vector(fn(self.data))
+
+        if len(others) == 1:
+            o = others[0]
+            if isinstance(o, Scalar) or isinstance(o, Vector):
+                fn = Vector.functions[1].get(name, None)
+                if fn is None: raise noFunErr
+                return Vector(fn(self.data, o.value if isinstance(o, Scalar) else o.data))
+            else:
+                raise noFunErr
+
+        raise noFunErr
+
+@dataclasses.dataclass
+class Sequence(Value):
+    items: list[Value]   # for jagged / per-element results
+
+    def asInteger(self):
+        return [i.asInteger() for i in self.items]
 
 class Context:
     "Context of defined variables and functions that can be used during expreesion evaluation"
-    def __init__(self, variables: dict[str, np.ndarray], functions: dict[str, "Function"]) -> None:
+    def __init__(self, variables: dict[str, Value], functions: dict[str, "Function"]) -> None:
         self.variables = variables
         self.functions = functions
 
@@ -14,7 +208,7 @@ class Context:
 
 class Expression:
     "Base class for expressions"
-    def evaluate(self, context: Context) -> np.ndarray:
+    def evaluate(self, context: Context) -> Value:
         "Evaluates this expression in the given context"
         return NotImplemented
 
@@ -45,11 +239,11 @@ class Expression:
 
 class Constant(Expression):
     "A constant numeric value"
-    def __init__(self, value: float) -> None:
+    def __init__(self, value: Value) -> None:
         self.value = value
 
-    def evaluate(self, context: Context) -> np.ndarray:
-        return np.array(self.value)
+    def evaluate(self, context: Context) -> Value:
+        return self.value
  
     def getRequirements(self) -> list[str]:
         return []
@@ -65,7 +259,7 @@ class Variable(Expression):
     def __init__(self, id: str) -> None:
         self.id = id
 
-    def evaluate(self, context: Context) -> np.ndarray:
+    def evaluate(self, context: Context) -> Value:
         if self.id not in context.variables:
             raise NameError(f'Variable {self.id} not defined')
         return context.variables[self.id]
@@ -85,7 +279,7 @@ class FunCall(Expression):
         self.fname = fname
         self.args = args
 
-    def evaluate(self, context: Context) -> np.ndarray:
+    def evaluate(self, context: Context) -> Value:
         if self.fname not in context.functions:
             raise NameError(f'Function {self.fname} not defined')
 
@@ -107,7 +301,7 @@ class FunCall(Expression):
 
 class Function:
     "Base class for objects that represent function"
-    def evaluate(self, context: Context, args: list[Expression]) -> np.ndarray:
+    def evaluate(self, context: Context, args: list[Expression]) -> Value:
         return NotImplemented
 
     def getDescription(self) -> str:
@@ -115,19 +309,21 @@ class Function:
 
 class SimpleFunction(Function):
     "First-order function defined by single callable"
-    def __init__(self, callable: typing.Callable) -> None:
-        self.callable = callable
+    def __init__(self, name: str) -> None:
+        self.name = name
 
-    def evaluate(self, context: Context, args: list[Expression]) -> np.ndarray:
-        return self.callable(*(arg.evaluate(context) for arg in args))
+    def evaluate(self, context: Context, args: list[Expression]) -> Value:
+        vals = [arg.evaluate(context) for arg in args]
+        return vals[0].applyFunction(self.name, vals[1:])
 
     def getDescription(self) -> str:
-        return self.callable.__doc__ or ''
+        return self.name.__doc__ or ''
 
 class IntegerFunction(SimpleFunction):
     "`SimpleFunction` that converts data into integer type before passing it to the callable"
-    def evaluate(self, context: Context, args: list[Expression]) -> np.ndarray:
-        return self.callable(*(arg.evaluate(context).astype(np.int64) for arg in args))
+    def evaluate(self, context: Context, args: list[Expression]) -> Value:
+        vals = [arg.evaluate(context).asInteger() for arg in args]
+        return vals[0].applyFunction(self.name, vals[1:])
 
 class UserFunction(Function):
     """The compiled definition of function
@@ -140,7 +336,7 @@ class UserFunction(Function):
         self.args = args
         self.expr = expr
 
-    def evaluate(self, context: Context, args: list[Expression]) -> np.ndarray:
+    def evaluate(self, context: Context, args: list[Expression]) -> Value:
         "Call the function in the given context on the given arguments"
         if len(args) != len(self.args):
             raise TypeError(f'expected {len(self.args)} paramenters, got {len(args)}')
@@ -149,7 +345,7 @@ class UserFunction(Function):
         for k, v in zip(self.args, args):
             context.variables[k] = v.evaluate(context)
 
-        return self.expr.evaluate(context) + np.zeros_like(args[0].evaluate(context))
+        return self.expr.evaluate(context)
 
     def getDescription(self) -> str:
         return 'User defined'
@@ -157,11 +353,11 @@ class UserFunction(Function):
 class DiffFunctional(Function):
     "Functional that computes derivative of function"
 
-    EPS = 0.0000001
+    EPS = Scalar(0.0000001)
     def __init__(self) -> None:
         pass
 
-    def evaluate(self, context: Context, args: list[Expression]) -> np.ndarray:
+    def evaluate(self, context: Context, args: list[Expression]) -> Value:
         if len(args) != 2:
             raise TypeError(f'diff expected 2 paramenters, got {len(args)}')
 
@@ -173,7 +369,7 @@ class DiffFunctional(Function):
         c2 = context.copy()
         c2.variables[param.id] = param.evaluate(context) + DiffFunctional.EPS
 
-        return (expr.evaluate(c2) - expr.evaluate(c1)) / DiffFunctional.EPS + np.zeros_like(context.variables[param.id])
+        return (expr.evaluate(c2) - expr.evaluate(c1)) / DiffFunctional.EPS
 
     def getDescription(self) -> str:
         return 'Computes derivative of given function against given variable. Example: diff(sin(t),t) = cos(t)'
@@ -184,7 +380,8 @@ class SumFunctional(Function):
     def __init__(self) -> None:
         pass
 
-    def evaluate(self, context: Context, args: list[Expression]) -> np.ndarray:
+    def evaluate(self, context: Context, args: list[Expression]) -> Value:
+        raise TypeError(f'sum is currently work in progress')
         if len(args) != 4:
             raise TypeError(f'sum expected 4 paramenters, got {len(args)}')
 
@@ -192,8 +389,8 @@ class SumFunctional(Function):
         if not isinstance(param, Variable):
             raise TypeError(f'summation variable must be variable')
 
-        start = start.evaluate(context).astype(np.int64)
-        stop = stop.evaluate(context).astype(np.int64) + 1
+        start = start.evaluate(context).asInteger()
+        stop = stop.evaluate(context).asInteger() + 1
         steps = stop - start
 
         if steps.shape == ():
@@ -248,10 +445,10 @@ def diffRewrite(expr: Expression) -> Expression:
     subexpr = diffRewrite(subexpr)
 
     if isinstance(subexpr, Constant):
-        return Constant(0)
+        return Constant(Scalar(0))
 
     if isinstance(subexpr, Variable):
-        return Constant(1 if subexpr.id == param.id else 0)
+        return Constant(Scalar(1 if subexpr.id == param.id else 0))
 
     if isinstance(subexpr, FunCall):
         fn = subexpr.fname
@@ -270,7 +467,7 @@ def diffRewrite(expr: Expression) -> Expression:
             return subexpr.args[1] * inners[0] + subexpr.args[0] * inners[1]
 
         if fn == '/':
-            return (subexpr.args[1] * inners[0] - subexpr.args[0] * inners[1]) / (subexpr.args[1] ** Constant(2))
+            return (subexpr.args[1] * inners[0] - subexpr.args[0] * inners[1]) / (subexpr.args[1] ** Constant(Scalar(2)))
 
         if fn == 'sin':
             return FunCall('cos', subexpr.args) * inners[0]
@@ -285,10 +482,6 @@ def diffRewrite(expr: Expression) -> Expression:
             return inners[0] / subexpr.args[0]
 
     return expr
-
-def extract(arr: np.ndarray):
-    while arr.shape: arr = arr[0]
-    return arr
 
 class ParamPlot:
     """The compiled definition of parametric plot
@@ -307,12 +500,15 @@ class ParamPlot:
         self.start = start
         self.end = end
 
-    def evaluate(self, context: Context) -> list[np.ndarray]:
+    def evaluate(self, context: Context) -> list[Value]:
         "Evaluate the parametric plot"
 
         context = context.copy()
-        t = np.linspace(extract(self.start.evaluate(context)), extract(self.end.evaluate(context)), 1000)
-        z = np.zeros_like(t)
-        context.variables[self.var] = t
+        start = self.start.evaluate(context)
+        end = self.end.evaluate(context)
+        if not isinstance(start, Scalar): raise TypeError('Parametric plot start must be scalar!')
+        if not isinstance(end, Scalar): raise TypeError('Parametric plot start must be scalar!')
+        t = np.linspace(start.value, end.value, 1000)
+        context.variables[self.var] = Vector(t)
 
-        return [self.xexpr.evaluate(context) + z, self.yexpr.evaluate(context) + z]
+        return [self.xexpr.evaluate(context), self.yexpr.evaluate(context)]

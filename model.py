@@ -2,7 +2,8 @@ import numpy as np
 import typing
 
 from graphite.eqparser import parseFundef, parseParamPlot, parseNull, FatalSyntaxError
-from graphite.xmath import Context, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional, diffRewrite
+from graphite.xmath import Context, Scalar, Vector, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional, diffRewrite
+
 
 class Interval:
     "Span determined by its endpoints."
@@ -108,21 +109,21 @@ intFuns = ['gcd', 'lcm']
 keywords = simpleFuns + intFuns + ['pi', 'e', 'pow', 'diff', 'sum']
 
 constatns = {
-    'pi': np.pi, # type: ignore
-    'e': np.e
+    'pi': Scalar(np.pi), # type: ignore
+    'e': Scalar(np.e)
 }
 
-functions = {i: SimpleFunction(np.__dict__[i]) for i in simpleFuns} | \
-            {i: IntegerFunction(np.__dict__[i]) for i in intFuns} | \
+functions = {i: SimpleFunction(i) for i in simpleFuns} | \
+            {i: IntegerFunction(i) for i in intFuns} | \
             {
-        '+': SimpleFunction(np.add),
-        '-': SimpleFunction(np.subtract),
-        '--': SimpleFunction(np.negative),
-        '*': SimpleFunction(np.multiply),
-        '/': SimpleFunction(np.true_divide),
-        '**': SimpleFunction(np.power),
-        '^': SimpleFunction(np.power),
-        'pow': SimpleFunction(np.power),
+        '+': SimpleFunction('add'),
+        '-': SimpleFunction('sub'),
+        '--': SimpleFunction('neg'),
+        '*': SimpleFunction('mul'),
+        '/': SimpleFunction('div'),
+        '**': SimpleFunction('pow'),
+        '^': SimpleFunction('pow'),
+        'pow': SimpleFunction('pow'),
         'diff': DiffFunctional(),
         'sum': SumFunctional()
 }
@@ -139,6 +140,7 @@ class Model:
         self.yrange = Interval()
         self.compiled: list[tuple[tuple[str, UserFunction] | ParamPlot | None, list[str]]] = []
         self.errors: list[str | None] = []
+        self.directResults: list[str | None] = []
         self.code = ['']
         self.compile()
 
@@ -147,6 +149,7 @@ class Model:
         self.lines = len(self.code)
         self.compiled = [(None, [])] * self.lines
         self.errors = [None] * self.lines
+        self.directResults = [None] * self.lines
 
         for i, line in enumerate(self.code):
             if not line.strip(): continue
@@ -188,14 +191,22 @@ class Model:
 
                     if name == 'r': # polar plots
                         theta = np.linspace(0, 2 * np.pi, 200)
-                        c.variables['theta'] = theta
+                        c.variables['theta'] = Vector(theta)
                         radius = func.evaluate(c, [Variable('theta')])
-                        res = [radius * np.cos(theta), radius * np.sin(theta)]
+                        x_ = radius * Vector(np.cos(theta))
+                        y_ = radius * Vector(np.sin(theta))
+                        assert isinstance(x_, Vector), 'Something went wrong with polar plot'
+                        assert isinstance(y_, Vector), 'Something went wrong with polar plot'
+                        res = [x_.data, y_.data]
                     else:
-                        c.variables['x'] = x
+                        c.variables['x'] = Vector(x)
                         y = func.evaluate(c, [Variable('x')])
                         context.variables[name] = y
-                        res = [x, y]
+                        if not isinstance(y, Vector):
+                            self.directResults[i] = str(y)
+                            continue
+
+                        res = [x, y.data]
 
                     results.append((res, kws))
                 except (TypeError, NameError) as err:

@@ -1,7 +1,7 @@
 from pyparsing import *
 import re
 
-from graphite.xmath import Expression, Constant, Variable, FunCall
+from graphite.xmath import Expression, Scalar, Constant, Variable, FunCall
 
 class FatalSyntaxError(SyntaxError): pass
 
@@ -17,7 +17,7 @@ def parseLeftAssocBinaryOp(toks):
 identifier = Word(alphas + '_', alphanums + '_')
 variable = identifier.copy().setParseAction(lambda toks: Variable(toks[0]))
 integer = Word(nums)
-number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(lambda toks: Constant(float(toks[0])))
+number = Combine(Optional(Optional(integer) + '.') + integer).setParseAction(lambda toks: Constant(Scalar(float(toks[0]))))
 comment = Suppress(Literal('//') + restOfLine)
 
 expression = Forward()
