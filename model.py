@@ -1,9 +1,8 @@
 import numpy as np
 import typing
 
-from graphite.eqparser import parseFundef, parseParamPlot, parseNull, FatalSyntaxError
-from graphite.xmath import Context, Scalar, Vector, Variable, Constant, SimpleFunction, IntegerFunction, UserFunction, ParamPlot, DiffFunctional, SumFunctional, diffRewrite
-
+from graphite.eqparser import compileLine, FatalSyntaxError
+from graphite.xmath import Context, Scalar, Vector, Sequence, SimpleFunction, IntegerFunction, CompiledLine, EmptyLine, DiffFunctional, SumFunctional
 
 class Interval:
     "Span determined by its endpoints."
@@ -46,49 +45,6 @@ class Interval:
     def __iter__(self) -> typing.Iterator[float]:
         yield self.s
         yield self.e
-
-def compileFunction(line: str):
-    toks, kws = parseFundef(line)
-    definition = toks[-1]
-    name = '' if len(toks) == 1 else toks[0]
-
-    if len(toks) <= 2:
-        params = ['x']
-
-    else:
-        if any(not isinstance(v, Variable) for v in toks[1]):
-            raise SyntaxError('Function definition parameters must be variable names')
-        params = [v.id for v in toks[1]] # type: ignore
-
-    return (name, UserFunction(params, definition)), kws
-
-def compileParamPlot(line: str):
-    toks, kws = parseParamPlot(line)
-    if len(toks) != 2:
-        raise SyntaxError('Parametric plot require parameter definition (such as "(cos(t),sin(t))[t,0,1]")')
-    exprs, params = toks
-    if len(exprs) != 2:
-        raise SyntaxError(f'Parametric plot expected 2 expressions, got {len(exprs)}')
-    if len(params) != 3:
-        raise SyntaxError(f'Parametric plot expected 3 parameters, got {len(params)}')
-
-    if not isinstance(params[0], Variable):
-        raise SyntaxError(f'First parameter of parametric plot must be variable name')
-
-    return ParamPlot(exprs[0], exprs[1], params[0].id, params[1], params[2]), kws
-
-def compileNull(line: str):
-    return parseNull(line)
-
-def compileLine(line: str):
-    err = None
-    for f in [compileFunction, compileParamPlot, compileNull]:
-        try:
-            return f(line)
-        except FatalSyntaxError as e:
-            err = e
-
-    raise err # type: ignore
 
 simpleFuns = [
     'abs', 'sign', 'copysign',
@@ -139,7 +95,7 @@ class Model:
     def __init__(self) -> None:
         self.xrange = Interval()
         self.yrange = Interval()
-        self.compiled: list[tuple[tuple[str, UserFunction] | ParamPlot | None, list[str]]] = []
+        self.compiled: list[tuple[CompiledLine, list[str]]] = []
         self.errors: list[str | None] = []
         self.directResults: list[str | None] = []
         self.code = ['']
@@ -148,7 +104,7 @@ class Model:
     def compile(self):
         "Compile the code, updating attributes `compiled` and `errors`"
         self.lines = len(self.code)
-        self.compiled = [(None, [])] * self.lines
+        self.compiled = [(EmptyLine(), [])] * self.lines
         self.errors = [None] * self.lines
         self.directResults = [None] * self.lines
 
@@ -160,58 +116,30 @@ class Model:
             except (NameError, SyntaxError) as err:
                 self.errors[i] = str(err)
 
-    def execute(self, x: np.ndarray) -> list[tuple[np.ndarray, list[str]]]:
+    def execute(self, xspace: np.ndarray) -> list[tuple[np.ndarray, list[str]]]:
         "Execute the compiled code and return list of results"
         context = builtins.copy()
+        context.variables['x'] = Vector(xspace)
         results = []
 
         for i, line in enumerate(self.compiled):
-            line, kws = line
-            if line is None:
-                results.append(([np.empty((0,)), np.empty((0,))], kws))
-            elif isinstance(line, ParamPlot):
-                try:
-                    results.append((line.evaluate(context), kws))
-                except (TypeError, NameError) as err:
-                    self.errors[i] = str(err)
+            try:
+                line, kws = line
 
-            else:
-                name, func = line
-                try:
-                    func.expr = diffRewrite(func.expr)
-                except TypeError as err:
-                    self.errors[i] = str(err)
-                    continue
+                res = line.evaluate(context)
+                x = y = ans = None
+                if len(res) == 2:
+                    x, y = res
+                if len(res) == 3:
+                    x, y, ans = res
 
-                context.functions[name] = func
-                if len(func.args) != 1:
-                    continue
+                if isinstance(x, Vector) and isinstance(y, Vector):
+                    results.append(((x.data, y.data), kws))
 
-                try:
-                    c = context.copy()
-
-                    if name == 'r': # polar plots
-                        theta = np.linspace(0, 2 * np.pi, 200)
-                        c.variables['theta'] = Vector(theta)
-                        radius = func.evaluate(c, [Variable('theta')])
-                        x_ = radius * Vector(np.cos(theta))
-                        y_ = radius * Vector(np.sin(theta))
-                        assert isinstance(x_, Vector), 'Something went wrong with polar plot'
-                        assert isinstance(y_, Vector), 'Something went wrong with polar plot'
-                        res = [x_.data, y_.data]
-                    else:
-                        c.variables['x'] = Vector(x)
-                        y = func.evaluate(c, [Variable('x')])
-                        context.variables[name] = y
-                        if not isinstance(y, Vector):
-                            self.directResults[i] = str(y)
-                            continue
-
-                        res = [x, y.data]
-
-                    results.append((res, kws))
-                except (TypeError, NameError) as err:
-                    self.errors[i] = str(err)
+                if isinstance(ans, Scalar) or isinstance(ans, Sequence):
+                    self.directResults[i] = str(ans)
+            except (TypeError, NameError, ValueError) as err:
+                self.errors[i] = str(err)
 
         return results
 
@@ -227,11 +155,12 @@ class Model:
         if y: self.yrange.zoom(scale)
 
 if __name__ == '__main__':
-    df = parseFundef('diff(x,diff(x,diff(x,sin(x))))')[0][0]
+    pass
+    # df = compileLine('diff(x,diff(x,diff(x,sin(x))))')[0][0]
     # df = parseFundef('diff(x,sin(x))')[0][0]
-    print(df)
-    df = diffRewrite(df) # type: ignore
-    print(df)
+    # print(df)
+    # df = diffRewrite(df) # type: ignore
+    # print(df)
     # for k, v in builtins.functions.items():
     #     print('\n' * 50)
     #     print(k, v.getDescription())

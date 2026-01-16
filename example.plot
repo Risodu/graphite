@@ -16,4 +16,4 @@ r = theta
 g = pi ** 2
 
 // Parametric plots
-// (t + sin(t), 1 - cos(t))[t,-10,10]
+(t + sin(t), 1 - cos(t))[t,-10,10]

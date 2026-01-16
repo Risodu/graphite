@@ -4,6 +4,7 @@ import math
 import dataclasses
 
 class Value:
+    "Base class for any data values"
     def asInteger(self) -> typing.Any:
         return NotImplemented
 
@@ -292,7 +293,7 @@ class Constant(Expression):
         return str(self.value)
 
 class Variable(Expression):
-    "Single v)ariable which value is provided by the context"
+    "Single variable which value is provided by the context"
     def __init__(self, id: str) -> None:
         self.id = id
 
@@ -413,7 +414,7 @@ class DiffFunctional(Function):
 
 class SumFunctional(Function):
     "Functional that computes sum of expression in given list of numbers"
-    
+
     def __init__(self) -> None:
         pass
 
@@ -520,7 +521,51 @@ def diffRewrite(expr: Expression) -> Expression:
 
     return expr
 
-class ParamPlot:
+class CompiledLine:
+    def evaluate(self, context) -> list[Value]:
+        """Evaluate the compiled line in given context.
+
+        Returns:
+            list[Value]: Pair of two Values, representing datapoints to plot. May include third value: the result of function call, to be displayed to the user.
+        """
+        return [Vector(np.empty((0,))), Vector(np.empty((0,)))]
+
+class EmptyLine(CompiledLine):
+    pass
+
+class FunctionDefinition(CompiledLine):
+    def __init__(self, name: str, definition: UserFunction) -> None:
+        self.name = name
+        self.definition = definition
+
+    def evaluate(self, context) -> list[Value]:
+        self.definition.expr = diffRewrite(self.definition.expr)
+
+        context.functions[self.name] = self.definition
+        if len(self.definition.args) != 1:
+            return super().evaluate(context)
+
+        c = context.copy()
+        param = self.definition.args[0]
+
+        if self.name == 'r': # polar plots
+            size = len(c.variables['x'].data) if isinstance(c.variables['x'], Vector) else 1000
+            theta = np.linspace(0, 2 * np.pi, size)
+            c.variables[param] = Vector(theta)
+            radius = self.definition.evaluate(c, [Variable(param)])
+            x = radius * Vector(np.cos(theta))
+            y = radius * Vector(np.sin(theta))
+            return [x, y, radius]
+        else:
+            c.variables[param] = c.variables['x']
+            y = self.definition.evaluate(c, [Variable(param)])
+            context.variables[self.name] = y
+
+            res = [c.variables['x'], y, y]
+
+        return res
+
+class ParamPlot(CompiledLine):
     """The compiled definition of parametric plot
 
     Attributes:
