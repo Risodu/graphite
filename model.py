@@ -99,7 +99,8 @@ simpleFuns = [
     'sinh', 'cosh', 'tanh', 'arcsinh', 'arccosh', 'arctanh',
     'exp', 'expm1', 'exp2', 'log', 'log10', 'log2', 'log1p', 'logaddexp', 'logaddexp2',
     'sinc',
-    'sqrt', 'cbrt'
+    'sqrt', 'cbrt',
+    'list'
     # 'sum', 'prod', 'ediff1d', 'gradient', 'cross', 'trapz',
     # 'real_if_close', 'interp',
 ]
@@ -179,7 +180,7 @@ class Model:
                 try:
                     func.expr = diffRewrite(func.expr)
                 except TypeError as err:
-                    self.errors[i] = str(i)
+                    self.errors[i] = str(err)
                     continue
 
                 context.functions[name] = func

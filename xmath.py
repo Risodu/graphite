@@ -85,6 +85,9 @@ class Scalar(Value):
         argTypes = ', '.join(i.__class__.__name__ for i in [self, *others])
         noFunErr = TypeError(f'No overload of {name} takes arguments {argTypes}')
 
+        if name == 'list':
+            return Sequence([self, *others])
+
         if len(others) == 0:
             fn = Scalar.functions[0].get(name, None)
             if fn is None:
@@ -102,8 +105,10 @@ class Scalar(Value):
                 fn = Vector.functions[1].get(name, None)
                 if fn is None: raise noFunErr
                 return Vector(fn(self.value, o.data))
+            elif isinstance(o, Sequence):
+                return Sequence([self.applyFunction(name, [i]) for i in o.items])
             else:
-                raise TypeError(o, isinstance(o, Scalar))
+                raise noFunErr
 
         raise noFunErr
 
@@ -172,6 +177,9 @@ class Vector(Value):
         argTypes = ', '.join(i.__class__.__name__ for i in [self, *others])
         noFunErr = TypeError(f'No overload of {name} takes arguments {argTypes}')
 
+        if name == 'list':
+            return Sequence([self, *others])
+
         if len(others) == 0:
             fn = Vector.functions[0].get(name, None)
             if fn is None:
@@ -184,6 +192,8 @@ class Vector(Value):
                 fn = Vector.functions[1].get(name, None)
                 if fn is None: raise noFunErr
                 return Vector(fn(self.data, o.value if isinstance(o, Scalar) else o.data))
+            elif isinstance(o, Sequence):
+                return Sequence([self.applyFunction(name, [i]) for i in o.items])
             else:
                 raise noFunErr
 
@@ -193,8 +203,35 @@ class Vector(Value):
 class Sequence(Value):
     items: list[Value]   # for jagged / per-element results
 
+    def __init__(self, args: list[Value]):
+        self.items = args
+
     def asInteger(self):
         return [i.asInteger() for i in self.items]
+
+    def applyFunction(self, name: str, others: list["Value"]) -> "Value":
+        argTypes = ', '.join(i.__class__.__name__ for i in [self, *others])
+        noFunErr = TypeError(f'No overload of {name} takes arguments {argTypes}')
+
+        if name == 'get':
+            if not len(others) == 1 or not isinstance(others[0], Scalar):
+                raise noFunErr
+            return self.items[int(others[0].value)]
+
+        if len(others) == 0:
+            return Sequence([i.applyFunction(name, []) for i in self.items])
+
+        if len(others) == 1:
+            o = others[0]
+            if isinstance(o, Sequence):
+                return Sequence([a.applyFunction(name, [b]) for a, b in zip(self.items, o.items)])
+            if isinstance(o, Scalar) or isinstance(o, Vector):
+                return Sequence([i.applyFunction(name, [o]) for i in self.items])
+
+        raise noFunErr
+
+    def __str__(self) -> str:
+        return '[' + ', '.join(map(str, self.items)) + ']'
 
 class Context:
     "Context of defined variables and functions that can be used during expreesion evaluation"
